@@ -42,10 +42,7 @@ Harness rules (fixed -- these are not yours to change):
 - Available Python libraries: numpy, pandas, scikit-learn (plus the standard
   library). Nothing else is installed and nothing can be installed -- for
   gradient boosting use sklearn's HistGradientBoostingClassifier/Regressor.
-- Use write_file to propose train.py (or your next change), then call
-  run_experiment with a one-sentence description of what you changed.
-- run_experiment keeps your change if it beats the best {metric_name} so far
-  and reverts it otherwise (or on error). The harness decides, not you.
+{protocol}
 - Use read_file to see the current train.py and get_history to see every
   attempt so far.
 - You have a budget of {round_budget} experiments. When it is used up, or
@@ -53,6 +50,27 @@ Harness rules (fixed -- these are not yours to change):
   you tried, what worked, and your final best {metric_name}, then stop by
   replying with plain text and no tool calls.
 """
+
+# How experiments are proposed. "single" is plain Tumble; "candidates" is the
+# Budget RSI protocol: several candidate edits per round, the harness picks one.
+PROTOCOLS = {
+    "single": """\
+- Use write_file to propose train.py (or your next change), then call
+  run_experiment with a one-sentence description of what you changed.
+- run_experiment keeps your change if it beats the best {metric_name} so far
+  and reverts it otherwise (or on error). The harness decides, not you.""",
+    "candidates": """\
+- Experiment 1: write train.py with write_file and call run_experiment with a
+  one-sentence description. That is your baseline.
+- Every later experiment: write {k} DIFFERENT candidate versions of the whole
+  script as candidate_1.py ... candidate_{k}.py (each a complete train.py
+  following the rules above, each trying a different idea), then call
+  submit_candidates with one short description per candidate, in order.
+- The harness selects ONE candidate and runs it -- you do not choose which.
+  It keeps it as train.py if it beats the best {metric_name} so far and reverts
+  otherwise. Candidate files are deleted after each submit_candidates call.
+- Each submit_candidates call uses one experiment from your budget.""",
+}
 
 # Generation 0 = Tumble's original instructions, unchanged in spirit.
 SEED_RESEARCH_PROMPT = """\
@@ -103,8 +121,10 @@ class Improver:
     def seed(cls) -> "Improver":
         return cls(SEED_RESEARCH_PROMPT, SEED_META_PROMPT, generation=0, rationale="seed: Tumble's original prompt", id="gen000-seed")
 
-    def system_prompt(self, preview: str, target_column: str, metric_name: str, minimize: bool, round_budget: int) -> str:
+    def system_prompt(self, preview: str, target_column: str, metric_name: str, minimize: bool, round_budget: int,
+                      protocol: str = "single", k: int = 3) -> str:
         contract = HARNESS_CONTRACT.format(
+            protocol=PROTOCOLS[protocol].format(metric_name=metric_name, k=k),
             preview=preview,
             target_column=target_column,
             metric_name=metric_name,

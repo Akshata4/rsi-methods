@@ -152,8 +152,12 @@ class Workspace:
                 "minimize": minimize,
                 "target_column": target_column,
                 "history": [],
+                "executions": 0,  # train.py runs actually executed (Budget RSI can run fewer than it considers)
             }
         )
+
+    def tool_schemas(self) -> list[dict]:
+        return TOOL_SCHEMAS
 
     def tool_functions(self) -> dict:
         return {
@@ -231,51 +235,55 @@ class Workspace:
         except Exception as e:
             return None, f"scoring failed: {e}"
 
-    def _record(self, state: dict, iteration: int, description: str, metric: float | None, kept: bool, error: str | None = None) -> None:
+    def _record(self, state: dict, iteration: int, description: str, metric: float | None, kept: bool,
+                error: str | None = None, extra: dict | None = None) -> None:
         entry = {"iteration": iteration, "metric": metric, "kept": kept, "description": description}
         if error is not None:
             entry["error"] = error
+        if extra:
+            entry.update(extra)
         state["iteration"] = iteration
         state["history"].append(entry)
         self._save_state(state)
 
-    def run_experiment(self, description: str) -> str:
-        state = self.load_state()
-        iteration = state["iteration"] + 1
-        metric_name = state["metric_name"]
+    def execute(self, code: str) -> tuple[float | None, str | None]:
+        """Run `code` as train.py and score its predictions on the hidden labels.
+        Returns (metric, error). Does NOT commit or revert anything; callers decide."""
+        stale = os.path.join(self.root, PREDICTIONS_FILE)
+        if os.path.exists(stale):
+            os.remove(stale)  # never score a previous experiment's predictions
+        result = self.executor.run(code, timeout=RUN_TIMEOUT_SECONDS)
+        if result.timed_out:
+            return None, "timed out"
+        if result.exit_code != 0:
+            return None, result.stderr.strip()[-500:] or f"exit code {result.exit_code}"
+        return self._score_predictions()
 
+    def _budget_refusal(self, iteration: int) -> str | None:
         if iteration >= self.max_experiments:
             return (
                 f"Experiment budget exhausted ({self.max_experiments}/{self.max_experiments} used). "
                 "Write your final report to REPORT.md now and stop."
             )
-        if not os.path.exists(self.train_script):
-            return "Error: train.py does not exist yet. Write it with write_file first."
+        return None
 
-        with open(self.train_script) as f:
-            code = f.read()
-        stale = os.path.join(self.root, PREDICTIONS_FILE)
-        if os.path.exists(stale):
-            os.remove(stale)  # never score a previous experiment's predictions
-        result = self.executor.run(code, timeout=RUN_TIMEOUT_SECONDS)
-
-        if result.timed_out:
-            self._git("checkout", "--", "train.py")
-            self._record(state, iteration, description, None, False, "timed out")
-            return f"Iteration {iteration}: TIMED OUT after {RUN_TIMEOUT_SECONDS}s. Change reverted."
-
-        if result.exit_code != 0:
-            metric, error = None, result.stderr.strip()[-500:] or f"exit code {result.exit_code}"
-        else:
-            metric, error = self._score_predictions()
+    def _keep_or_revert(self, state: dict, iteration: int, description: str, code: str,
+                        metric: float | None, error: str | None, executions: int = 1, extra: dict | None = None) -> str:
+        """Apply the deterministic keep/revert rule to one scored version of train.py."""
+        metric_name = state["metric_name"]
+        state["executions"] = state.get("executions", 0) + executions
         if metric is None:
             self._git("checkout", "--", "train.py")
-            self._record(state, iteration, description, None, False, error)
+            self._record(state, iteration, description, None, False, error, extra)
+            if error == "timed out":
+                return f"Iteration {iteration}: TIMED OUT after {RUN_TIMEOUT_SECONDS}s. Change reverted."
             return f"Iteration {iteration}: FAILED ({error}). Change reverted; train.py is back to the last kept version."
 
         best = state["best_metric"]
         kept = best is None or (metric < best if state["minimize"] else metric > best)
         if kept:
+            with open(self.train_script, "w") as f:
+                f.write(code)
             self._git("add", "train.py")
             self._git(
                 "-c", "user.name=rsi-harness", "-c", "user.email=rsi@local",
@@ -284,10 +292,23 @@ class Workspace:
             state["best_metric"] = metric
         else:
             self._git("checkout", "--", "train.py")
-        self._record(state, iteration, description, metric, kept)
+        self._record(state, iteration, description, metric, kept, None, extra)
 
         verdict = "NEW BEST -- change kept and committed" if kept else f"did not beat the best ({best}) -- change reverted"
         return f"Iteration {iteration}: {metric_name}={metric}. {verdict}. Current best: {state['best_metric']}."
+
+    def run_experiment(self, description: str) -> str:
+        state = self.load_state()
+        iteration = state["iteration"] + 1
+        refusal = self._budget_refusal(iteration)
+        if refusal:
+            return refusal
+        if not os.path.exists(self.train_script):
+            return "Error: train.py does not exist yet. Write it with write_file first."
+        with open(self.train_script) as f:
+            code = f.read()
+        metric, error = self.execute(code)
+        return self._keep_or_revert(state, iteration, description, code, metric, error)
 
     def get_history(self) -> str:
         state = self.load_state()

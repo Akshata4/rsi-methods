@@ -15,7 +15,7 @@ from tumble_core.agent_loop import run_agent
 from tumble_core.dataset_preview import build_preview
 from tumble_core.executor import LocalExecutor
 from tumble_core.trajectory import Trajectory
-from tumble_core.workspace import TOOL_SCHEMAS, Workspace
+from tumble_core.workspace import Workspace
 
 
 @dataclass
@@ -67,17 +67,26 @@ def _print_event(event: dict) -> None:
 
 
 def run_improver_on_dataset(
-    improver: Improver, dataset: DatasetSpec, budget: int, out_dir: str, verbose: bool = True
+    improver: Improver, dataset: DatasetSpec, budget: int, out_dir: str, verbose: bool = True,
+    make_workspace=None, protocol: str = "single", k: int = 3,
 ) -> RunResult:
     """Run a full Tumble session under `improver` and return its final result.
-    Everything (workspace, trajectory, result.json) lands in out_dir."""
+    Everything (workspace, trajectory, result.json) lands in out_dir.
+
+    `make_workspace(workspace_dir, executor, budget)` swaps in a different
+    workspace (e.g. Budget RSI's CandidateWorkspace); `protocol`/`k` select
+    the matching instructions in the fixed harness contract."""
     workspace_dir = os.path.join(out_dir, "workspace")
     executor = LocalExecutor(workspace_dir)
-    workspace = Workspace(workspace_dir, executor, max_experiments=budget)
+    if make_workspace is None:
+        workspace = Workspace(workspace_dir, executor, max_experiments=budget)
+    else:
+        workspace = make_workspace(workspace_dir, executor, budget)
     workspace.init(dataset.path, dataset.target, dataset.metric, dataset.minimize)
 
     preview = build_preview(workspace.dev_path, dataset.target)  # the agent's view: dev rows only
-    system_prompt = improver.system_prompt(preview, dataset.target, dataset.metric, dataset.minimize, budget)
+    system_prompt = improver.system_prompt(preview, dataset.target, dataset.metric, dataset.minimize, budget,
+                                           protocol=protocol, k=k)
     prompt = f"Improve {dataset.metric} as much as you can within your budget of {budget} experiments, then write your final report."
 
     trajectory = Trajectory(os.path.join(out_dir, "trajectory.jsonl"))
@@ -87,8 +96,9 @@ def run_improver_on_dataset(
     usage: dict = {}
     started = time.monotonic()
     try:
-        status = run_agent(prompt, system_prompt, TOOL_SCHEMAS, workspace.tool_functions(), trajectory,
-                           max_turns=4 * budget + 10, usage=usage)
+        turns_per_experiment = 4 if protocol == "single" else k + 3  # k candidate writes + submit + reads
+        status = run_agent(prompt, system_prompt, workspace.tool_schemas(), workspace.tool_functions(), trajectory,
+                           max_turns=turns_per_experiment * budget + 10, usage=usage)
     except Exception as e:  # an API failure loses this run, not the whole generation
         status = f"error: {type(e).__name__}: {e}"
         trajectory.log_notice(status)
@@ -112,7 +122,7 @@ def run_improver_on_dataset(
         report=report,
         trajectory_path=trajectory.path,
         budget=budget,
-        metrics=run_metrics(state["history"], dataset.minimize, budget),
+        metrics=run_metrics(state["history"], dataset.minimize, budget) | {"executions": state.get("executions")},
         total_tokens=usage.get("total_tokens", 0),
         llm_calls=usage.get("llm_calls", 0),
         wall_seconds=round(time.monotonic() - started, 1),

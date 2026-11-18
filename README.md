@@ -65,6 +65,8 @@ rsi/generations.py  the generation loop
 rsi/metrics.py      run-level metrics (gain over baseline, wasted rate, best-so-far curve...)
 rsi/evaluate.py     final evaluation on untouched TEST datasets, with repeats and baselines
 rsi/plots.py        generations.png and best_so_far.png
+rsi/budget/         Budget RSI: edit features, scorer, candidate workspace, experiment
+run_budget_rsi.py   Budget RSI entry point
 run_rsi.py          CLI entry point
 scripts/make_datasets.py   downloads the clinical datasets, writes datasets/registry.json
 scripts/export_run.py      copies a finished run into results/ and updates the results log
@@ -89,6 +91,39 @@ workspace (with git history of kept edits), trajectory, `lineage.jsonl`, and
 
 ```bash
 uv run python -m rsi.evaluate runs/<timestamp> --test liver_ilpd hospital_readmission --repeats 3
+```
+
+## Method 1: Budget RSI
+
+Based on *Recursive Self-Improvement on a Budget* (arXiv 2610.29121; course
+labs 10.03-10.05). Running an experiment is the expensive step, so a cheap
+scorer predicts which proposed edit is worth running.
+
+- After a normal baseline experiment, each round the agent writes 3 candidate
+  scripts (`candidate_1.py` ... `candidate_3.py`) and calls `submit_candidates`.
+- The harness, not the agent, picks one to run; the round still costs one experiment.
+- The scorer is a linear readout (ridge regression, solved with numpy) over
+  the parent's score and 8 static features of the edit: size, model switch,
+  ensemble added, preprocessing touched, new columns, hyperparameter changes,
+  search/CV added, and whether it compiles (`rsi/budget/features.py`).
+- It is trained on labeled edits and refit on the outcomes of its own picks.
+
+The experiment (`run_budget_rsi.py`) has four phases:
+
+1. **collect**: on the train + held-out datasets every candidate is executed,
+   so each edit gets a true outcome (default 4 datasets x 2 repeats x 4
+   rounds x 3 candidates = 96 labeled edits, as in the paper).
+2. **analyze**: replay every round offline, testing the scorer on a dataset it
+   wasn't trained on: scorer pick vs random vs the agent's first idea vs the
+   best possible pick, plus a learning curve over training-set size.
+3. **live**: on the test datasets, same budget: plain Tumble vs propose-3 and
+   run {first, random, scorer pick}.
+4. **refit**: scorer v2 = v1's data + the outcomes of its live picks.
+
+```bash
+uv run python run_budget_rsi.py                          # all phases
+uv run python run_budget_rsi.py --phases collect analyze # offline part only
+uv run python run_budget_rsi.py --out runs/budget-<ts>   # resume
 ```
 
 ## How we know whether it improved
