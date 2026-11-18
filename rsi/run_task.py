@@ -68,7 +68,7 @@ def _print_event(event: dict) -> None:
 
 def run_improver_on_dataset(
     improver: Improver, dataset: DatasetSpec, budget: int, out_dir: str, verbose: bool = True,
-    make_workspace=None, protocol: str = "single", k: int = 3,
+    make_workspace=None, protocol: str = "single", k: int = 3, protocol_vars: dict | None = None,
 ) -> RunResult:
     """Run a full Tumble session under `improver` and return its final result.
     Everything (workspace, trajectory, result.json) lands in out_dir.
@@ -86,7 +86,7 @@ def run_improver_on_dataset(
 
     preview = build_preview(workspace.dev_path, dataset.target)  # the agent's view: dev rows only
     system_prompt = improver.system_prompt(preview, dataset.target, dataset.metric, dataset.minimize, budget,
-                                           protocol=protocol, k=k)
+                                           protocol=protocol, k=k, protocol_vars=protocol_vars)
     prompt = f"Improve {dataset.metric} as much as you can within your budget of {budget} experiments, then write your final report."
 
     trajectory = Trajectory(os.path.join(out_dir, "trajectory.jsonl"))
@@ -96,7 +96,9 @@ def run_improver_on_dataset(
     usage: dict = {}
     started = time.monotonic()
     try:
-        turns_per_experiment = 4 if protocol == "single" else k + 3  # k candidate writes + submit + reads
+        # tool calls per experiment: write + run (+ reads); candidates: k writes + submit;
+        # sorsi: + probes and a diagnosis when an anomaly fires
+        turns_per_experiment = {"single": 4, "candidates": k + 3, "sorsi": 7}.get(protocol, 4)
         status = run_agent(prompt, system_prompt, workspace.tool_schemas(), workspace.tool_functions(), trajectory,
                            max_turns=turns_per_experiment * budget + 10, usage=usage)
     except Exception as e:  # an API failure loses this run, not the whole generation

@@ -30,12 +30,13 @@ class LocalExecutor:
     def __init__(self, workdir: str):
         self.workdir = workdir
 
-    def run(self, code: str, timeout: int) -> ExecResult:
-        with open(os.path.join(self.workdir, TRAIN_SCRIPT_NAME), "w") as f:
+    def run(self, code: str, timeout: int, script: str = TRAIN_SCRIPT_NAME) -> ExecResult:
+        """Write `code` to `script` in the workspace and run it there."""
+        with open(os.path.join(self.workdir, script), "w") as f:
             f.write(code)
         try:
             proc = subprocess.run(
-                [sys.executable, TRAIN_SCRIPT_NAME],
+                [sys.executable, script],
                 cwd=self.workdir,
                 capture_output=True,
                 text=True,

@@ -67,6 +67,8 @@ rsi/evaluate.py     final evaluation on untouched TEST datasets, with repeats an
 rsi/plots.py        generations.png and best_so_far.png
 rsi/budget/         Budget RSI: edit features, scorer, candidate workspace, experiment
 run_budget_rsi.py   Budget RSI entry point
+rsi/sorsi/          SO-RSI: anomaly detector, inquiry memory, diagnosing workspace, experiment
+run_so_rsi.py       SO-RSI entry point
 run_rsi.py          CLI entry point
 scripts/make_datasets.py   downloads the clinical datasets, writes datasets/registry.json
 scripts/export_run.py      copies a finished run into results/ and updates the results log
@@ -111,8 +113,9 @@ scorer predicts which proposed edit is worth running.
 The experiment (`run_budget_rsi.py`) has four phases:
 
 1. **collect**: on the train + held-out datasets every candidate is executed,
-   so each edit gets a true outcome (default 4 datasets x 2 repeats x 4
-   rounds x 3 candidates = 96 labeled edits, as in the paper).
+   so each edit gets a true outcome. With the default budget of 4 experiments
+   (1 baseline + 3 candidate rounds): 4 datasets x 2 repeats x 3 rounds x 3
+   candidates = 72 labeled edits (the paper fits on 96; `--rounds 5` gives 96).
 2. **analyze**: replay every round offline, testing the scorer on a dataset it
    wasn't trained on: scorer pick vs random vs the agent's first idea vs the
    best possible pick, plus a learning curve over training-set size.
@@ -124,6 +127,45 @@ The experiment (`run_budget_rsi.py`) has four phases:
 uv run python run_budget_rsi.py                          # all phases
 uv run python run_budget_rsi.py --phases collect analyze # offline part only
 uv run python run_budget_rsi.py --out runs/budget-<ts>   # resume
+```
+
+## Method 2: SO-RSI
+
+Based on *Second-Order Problem Solving for Recursive Self-Improvement*
+(arXiv 2610.05701; course labs 10.06-10.08): investigate WHY an experiment
+fails before patching it again.
+
+- **Expectations:** `run_experiment` also takes `expected_direction`
+  (improve / no_change / worse) and a one-sentence expectation.
+- **Anomaly detection** (harness-side, `rsi/sorsi/detector.py`) after every experiment:
+  - *recurrence*: the same error signature again, or the same kind of change
+    reverted twice in a row
+  - *opposing edits*: an edit undoes lines a recent edit added or removed
+  - *expectation mismatch*: "improve" expected, but it crashed or the score
+    fell by more than 1%
+- **Diagnose before patching:** when an anomaly fires, `run_experiment` is
+  blocked until the agent calls `record_diagnosis` (root cause, evidence,
+  change that addresses the cause). It may first run up to 6 `run_probe`
+  scripts on its workspace data (hidden labels never touch disk; probes
+  don't use the experiment budget but are counted).
+- **Inquiry memory:** the next experiment tests each diagnosis (an
+  error-triggered one is confirmed by a clean run, a score-triggered one by a
+  kept change). Confirmed diagnoses become lessons shown to later sessions;
+  memory built over rounds is the recursive part.
+
+The experiment (`run_so_rsi.py`): **build** memory over rounds on the train +
+held-out datasets (tracking thrashing per round), then **test** on the test
+datasets with the same budget: plain Tumble vs SO-RSI without memory vs SO-RSI
+with the frozen memory. Default budget 6, since anomalies need some history.
+
+On the real trace from the first valid run (gen0's hospital session, four
+crashes), the detector flags a mismatch after the first crash and recurrence
+on the second identical `unseen labels` error -- the point where SO-RSI would
+have forced a diagnosis instead of three more blind patches.
+
+```bash
+uv run python run_so_rsi.py                       # build -> test
+uv run python run_so_rsi.py --out runs/sorsi-<ts> # resume
 ```
 
 ## How we know whether it improved

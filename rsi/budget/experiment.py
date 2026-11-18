@@ -2,8 +2,10 @@
 
 1. collect   On the train + held-out datasets, run the candidate protocol with
              policy "all": every candidate edit is executed, so each one gets a
-             true outcome label. 4 datasets x 2 repeats x 4 rounds x 3 candidates
-             = 96 labeled edits by default (the paper fits on 96 edits too).
+             true outcome label. The first experiment of a session is the
+             baseline, so the default budget of 4 gives 3 candidate rounds:
+             4 datasets x 2 repeats x 3 rounds x 3 candidates = 72 labeled
+             edits (the paper fits on 96; --rounds 5 gives 96).
 2. analyze   Offline, at zero extra cost: because every candidate ran, we can
              replay each round and ask what each selection strategy WOULD have
              scored -- scorer pick vs random vs the agent's first idea vs the best

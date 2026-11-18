@@ -70,6 +70,23 @@ PROTOCOLS = {
   It keeps it as train.py if it beats the best {metric_name} so far and reverts
   otherwise. Candidate files are deleted after each submit_candidates call.
 - Each submit_candidates call uses one experiment from your budget.""",
+    "sorsi": """\
+- Use write_file to propose train.py (or your next change), then call
+  run_experiment with a one-sentence description, an expected_direction
+  ("improve", "no_change" or "worse") and a one-sentence expectation saying
+  what you expect and why.
+- run_experiment keeps your change if it beats the best {metric_name} so far
+  and reverts it otherwise (or on error). The harness decides, not you.
+- The harness watches your experiments for three anomalies: recurrence (the
+  same error again, or the same kind of change reverted twice in a row),
+  opposing edits (undoing a recent edit), and expectation mismatch (your
+  expectation was clearly wrong). When one is detected, run_experiment is
+  blocked until you call record_diagnosis with the root cause (WHY it
+  happens, not what to try next), your evidence, and the change that
+  addresses that cause. Your next experiment then tests the diagnosis.
+- Before diagnosing you may call run_probe with a short Python script to
+  investigate (it runs in your workspace, prints its output; at most {probes}
+  probes per session). Probes do not use your experiment budget.{lessons}""",
 }
 
 # Generation 0 = Tumble's original instructions, unchanged in spirit.
@@ -122,9 +139,9 @@ class Improver:
         return cls(SEED_RESEARCH_PROMPT, SEED_META_PROMPT, generation=0, rationale="seed: Tumble's original prompt", id="gen000-seed")
 
     def system_prompt(self, preview: str, target_column: str, metric_name: str, minimize: bool, round_budget: int,
-                      protocol: str = "single", k: int = 3) -> str:
+                      protocol: str = "single", k: int = 3, protocol_vars: dict | None = None) -> str:
         contract = HARNESS_CONTRACT.format(
-            protocol=PROTOCOLS[protocol].format(metric_name=metric_name, k=k),
+            protocol=PROTOCOLS[protocol].format(metric_name=metric_name, k=k, **(protocol_vars or {})),
             preview=preview,
             target_column=target_column,
             metric_name=metric_name,
