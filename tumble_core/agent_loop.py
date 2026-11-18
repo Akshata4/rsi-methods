@@ -12,6 +12,7 @@ from tumble_core.llm_client import get_client_and_model
 from tumble_core.trajectory import Trajectory
 
 MAX_TURNS = 40
+MAX_TOOL_RESULT_CHARS = 40_000  # ~10k tokens: small CSVs fit whole, huge ones get truncated
 
 
 def _safe_parse_args(raw: str) -> tuple[dict | None, str | None]:
@@ -59,6 +60,10 @@ def run_agent(
 
         # Never resend malformed tool-call JSON to the API (it rejects the whole request).
         dumped = assistant_message.model_dump(exclude_none=True)
+        # A tool-call-only turn has content=None, which exclude_none drops. W&B's
+        # DeepSeek chat template then fails with a 400 ("+ operator on undefined
+        # and string") when this message is resent, so always send a string.
+        dumped.setdefault("content", "")
         if dumped.get("tool_calls"):
             for tc, (_, _, err) in zip(dumped["tool_calls"], parsed_calls):
                 if err is not None:
@@ -87,6 +92,14 @@ def run_agent(
                     result = tool_functions[fn_name](**args)
                 except TypeError as e:
                     result = f"Error: bad arguments for {fn_name}: {e}"
+            if len(result) > MAX_TOOL_RESULT_CHARS:
+                # e.g. read_file("dataset.csv") on an 8k-row CSV is ~1.5M chars and
+                # overflows the model's context window, killing the whole session.
+                result = (
+                    result[:MAX_TOOL_RESULT_CHARS]
+                    + f"\n\n[truncated: output was {len(result):,} characters, showing the first "
+                    f"{MAX_TOOL_RESULT_CHARS:,}. To inspect data, load it with pandas inside train.py.]"
+                )
             trajectory.log_tool_result(fn_name, args or {}, result, turn=turn)
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
 
