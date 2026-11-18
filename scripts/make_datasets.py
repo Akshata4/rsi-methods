@@ -1,68 +1,112 @@
-"""Write placeholder datasets (no download needed) plus datasets/registry.json.
+"""Download the clinical risk prediction datasets and write datasets/registry.json.
 
-These are stand-ins so the loop can be tested end to end. Replace them with
-datasets from your chosen problem area. Keep each one small (a run must
-finish in seconds) and not already solved (avoid ~1.0 accuracy datasets
-like iris/wine -- there's nothing left to improve).
+Problem area: clinical risk prediction. Every dataset is binary classification
+scored by ROC-AUC, with target = 1 for the clinically relevant outcome
+(disease present, readmission, donation, ...).
+
+Sources are public OpenML/UCI datasets, fetched by fixed OpenML id so the data
+is identical on every machine. Cleaning is deliberately minimal: only the
+target is standardized and pure ID columns are dropped. Messiness that a real
+analyst would have to handle (missing values, zeros that mean "missing",
+high-cardinality codes, imbalance) is left in on purpose -- that is the
+research the agent has to do.
+
+    uv run python scripts/make_datasets.py
 """
 
 import json
 import os
+import warnings
 
 import numpy as np
 import pandas as pd
-from sklearn.datasets import load_diabetes, make_classification, make_friedman1, make_friedman3
+from sklearn.datasets import fetch_openml
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
+from sklearn.compose import make_column_selector, make_column_transformer
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "datasets")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(ROOT, "datasets")
+CACHE = os.path.join(OUT, ".openml_cache")
+
+# name -> (OpenML id, label that becomes target=1, columns to drop, row sample size or None, description)
+DATASETS = {
+    "heart_cleveland": (49, ">50_1", [], None, "Heart disease (Cleveland): >50% vessel narrowing"),
+    "heart_hungarian": (51, ">50_1", [], None, "Heart disease (Hungarian): >50% vessel narrowing; ~20% missing values"),
+    "pima_diabetes": (37, "tested_positive", [], None, "Diabetes onset in Pima women; zeros in some columns mean 'missing'"),
+    "blood_donation": (1464, "2", [], None, "Whether a past blood donor donated again (2 = donated)"),
+    "liver_ilpd": (1480, "1", [], None, "Indian liver patient records (1 = liver patient)"),
+    "hospital_readmission": (4541, "<30", ["encounter_id", "patient_nbr"], 8000,
+                             "Diabetes 130-US hospitals: readmitted within 30 days (8,000-row sample)"),
+}
+
+# Which datasets play which role in the RSI experiment (see README).
+SPLITS = {
+    "train": ["heart_cleveland", "heart_hungarian"],
+    "heldout": ["pima_diabetes", "blood_donation"],
+    "test": ["liver_ilpd", "hospital_readmission"],
+}
 
 
-def save(name: str, df: pd.DataFrame, target: str, metric: str, minimize: bool, registry: list) -> None:
-    df.to_csv(os.path.join(OUT, f"{name}.csv"), index=False)
-    registry.append({"name": name, "path": f"{name}.csv", "target": target, "metric": metric, "minimize": minimize})
-    print(f"wrote {name}.csv {df.shape}")
+def reference_auc(df: pd.DataFrame) -> float:
+    """A plain logistic-regression baseline on the harness's fixed split,
+    so we know each dataset's starting point and that it isn't already solved."""
+    X, y = df.drop(columns=["target"]), df["target"]
+    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
+    pre = make_column_transformer(
+        (make_pipeline(SimpleImputer(), StandardScaler()), make_column_selector(dtype_include="number")),
+        (make_pipeline(SimpleImputer(strategy="most_frequent"), OneHotEncoder(handle_unknown="ignore")),
+         make_column_selector(dtype_exclude="number")),
+    )
+    model = make_pipeline(pre, LogisticRegression(max_iter=2000)).fit(Xtr, ytr)
+    return float(roc_auc_score(yte, model.predict_proba(Xte)[:, 1]))
 
 
-def with_messy_columns(df: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
-    """Add a categorical column and some missing values so preprocessing matters."""
-    df = df.copy()
-    df["region"] = rng.choice(["north", "south", "east", "west"], size=len(df))
-    cols = [c for c in df.columns if c not in ("target", "region")]
-    for c in rng.choice(cols, size=min(3, len(cols)), replace=False):
-        df.loc[rng.random(len(df)) < 0.08, c] = np.nan
+def load(name: str) -> pd.DataFrame:
+    did, positive, drop, sample, _ = DATASETS[name]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        # liac-arff parser: the default pandas ARFF parser breaks on some
+        # categorical columns with recent pandas versions.
+        bunch = fetch_openml(data_id=did, as_frame=True, data_home=CACHE, parser="liac-arff")
+    X = bunch.data.drop(columns=drop)
+    for col in X.columns:
+        if isinstance(X[col].dtype, pd.CategoricalDtype):
+            X[col] = X[col].astype(object)
+    labels = bunch.target.astype(str)
+    if positive not in set(labels):
+        raise ValueError(f"{name}: positive label {positive!r} not in {sorted(set(labels))}")
+    df = X.assign(target=(labels == positive).astype(int).values)
+    if sample is not None and len(df) > sample:
+        df = df.sample(sample, random_state=0).reset_index(drop=True)
     return df
 
 
 def main() -> None:
     os.makedirs(OUT, exist_ok=True)
-    rng = np.random.default_rng(0)
-    registry: list = []
-
-    d = load_diabetes(as_frame=True).frame
-    save("diabetes", with_messy_columns(d, rng), "target", "rmse", True, registry)
-
-    X, y = make_friedman1(n_samples=1200, n_features=10, noise=1.0, random_state=1)
-    df = pd.DataFrame(X, columns=[f"x{i}" for i in range(X.shape[1])]).assign(target=y)
-    save("friedman", with_messy_columns(df, rng), "target", "rmse", True, registry)
-
-    for name, seed, sep in [("noisy_clf", 2, 0.6), ("hard_clf", 3, 0.4)]:
-        X, y = make_classification(n_samples=1500, n_features=20, n_informative=6, n_redundant=4,
-                                   flip_y=0.08, class_sep=sep, random_state=seed)
-        df = pd.DataFrame(X, columns=[f"f{i}" for i in range(X.shape[1])]).assign(target=y)
-        save(name, with_messy_columns(df, rng), "target", "accuracy", False, registry)
-
-    X, y = make_friedman3(n_samples=1000, noise=0.15, random_state=4)
-    df = pd.DataFrame(X, columns=[f"x{i}" for i in range(X.shape[1])]).assign(target=y)
-    save("friedman3", with_messy_columns(df, rng), "target", "rmse", True, registry)
-
-    X, y = make_classification(n_samples=2000, n_features=15, n_informative=5, weights=[0.8, 0.2],
-                               flip_y=0.05, class_sep=0.7, random_state=5)
-    df = pd.DataFrame(X, columns=[f"f{i}" for i in range(X.shape[1])]).assign(target=y)
-    save("imbalanced_clf", with_messy_columns(df, rng), "target", "accuracy", False, registry)
-
+    registry = []
+    print(f"{'dataset':22s} {'split':8s} {'rows':>6s} {'cols':>5s} {'pos%':>5s} {'missing%':>9s} {'LR AUC':>7s}")
+    for split, names in SPLITS.items():
+        for name in names:
+            df = load(name)
+            df.to_csv(os.path.join(OUT, f"{name}.csv"), index=False)
+            auc = reference_auc(df)
+            missing = df.drop(columns=["target"]).isna().mean().mean()
+            print(f"{name:22s} {split:8s} {len(df):6d} {df.shape[1] - 1:5d} {df['target'].mean():5.0%} {missing:9.1%} {auc:7.3f}")
+            registry.append({
+                "name": name, "path": f"{name}.csv", "target": "target", "metric": "roc_auc", "minimize": False,
+                "split": split, "openml_id": DATASETS[name][0], "description": DATASETS[name][4],
+                "reference_lr_auc": round(auc, 4),
+            })
     with open(os.path.join(OUT, "registry.json"), "w") as f:
         json.dump(registry, f, indent=2)
-    print(f"wrote registry.json ({len(registry)} datasets)")
+    print(f"\nwrote {len(registry)} datasets + registry.json to {OUT}")
 
 
 if __name__ == "__main__":
+    np.random.seed(0)
     main()

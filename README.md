@@ -3,6 +3,34 @@
 Recursive self-improvement (RSI) built on top of **Tumble**, an autonomous ML
 research agent that writes and iteratively improves `train.py` for a dataset.
 
+**Problem area: clinical risk prediction.** The agent builds risk models from
+patient records (heart disease, diabetes, liver disease, hospital readmission),
+and the RSI layer tries to make the agent itself a better clinical-ML researcher.
+
+## Datasets
+
+Six public OpenML/UCI datasets, all binary classification scored by **ROC-AUC**
+(target = 1 for the clinical outcome). `scripts/make_datasets.py` downloads them
+by fixed OpenML id. Only the target is standardized and pure ID columns dropped;
+missing values, zeros-meaning-missing and messy codes are left in on purpose.
+
+| Dataset | OpenML id | Rows | Features | Positive % | Split | Baseline LR AUC |
+|---|---|---|---|---|---|---|
+| Heart disease, Cleveland | 49 | 303 | 13 | 46% | train | 0.877 |
+| Heart disease, Hungarian (20% missing) | 51 | 294 | 13 | 36% | train | 0.919 |
+| Pima diabetes onset | 37 | 768 | 8 | 35% | held-out | 0.815 |
+| Blood donation (returns to donate) | 1464 | 748 | 4 | 24% | held-out | 0.749 |
+| Indian liver patients (ILPD) | 1480 | 583 | 10 | 71% | test | 0.813 |
+| Diabetes 130-US hospitals, readmitted <30 days (8k sample) | 4541 | 8000 | 47 | 11% | test | 0.601 |
+
+Baseline = plain logistic regression on the harness's fixed 80/20 split.
+Datasets were chosen from 12 clinical candidates by probing: excluded were
+ones already near-solved (thyroid "sick" AUC 0.999, SPECTF 0.976,
+heart-statlog 0.947), ones with almost no signal (thoracic surgery ~0.52), and
+ones too small/noisy to tell real gains from luck (Haberman, breast-cancer:
+AUC varies by ±0.07 across splits). The two heart datasets share a schema, so
+they sit in the same split to avoid leakage across splits.
+
 ## The three objects
 
 | Object | What it is here | Who changes it |
@@ -37,7 +65,7 @@ rsi/metrics.py      run-level metrics (gain over baseline, wasted rate, best-so-
 rsi/evaluate.py     final evaluation on untouched TEST datasets, with repeats and baselines
 rsi/plots.py        generations.png and best_so_far.png
 run_rsi.py          CLI entry point
-scripts/make_datasets.py   placeholder datasets (replace with your problem area)
+scripts/make_datasets.py   downloads the clinical datasets, writes datasets/registry.json
 ```
 
 ## Run
@@ -46,16 +74,18 @@ scripts/make_datasets.py   placeholder datasets (replace with your problem area)
 uv sync
 cp .env.example .env              # add your W&B Inference (or OpenRouter) key
 uv run python scripts/make_datasets.py
-uv run python run_rsi.py --train diabetes noisy_clf --heldout friedman hard_clf \
-    --test friedman3 imbalanced_clf --budget 5 --generations 3 --repeats 3
+uv run python run_rsi.py --budget 5 --generations 3 --repeats 3
 ```
+
+Train / held-out / test datasets default to the splits in `datasets/registry.json`;
+override with `--train`, `--heldout`, `--test`.
 
 Each run writes to `runs/<timestamp>/`: every improver's JSON, every session's
 workspace (with git history of kept edits), trajectory, `lineage.jsonl`, and
 `eval/` with the final results. To (re-)run only the evaluation (finished runs are cached):
 
 ```bash
-uv run python -m rsi.evaluate runs/<timestamp> --test friedman3 imbalanced_clf --repeats 3
+uv run python -m rsi.evaluate runs/<timestamp> --test liver_ilpd hospital_readmission --repeats 3
 ```
 
 ## How we know whether it improved
@@ -102,4 +132,7 @@ a large gap means the loop over-fit its held-out set.
   A noisy held-out result can still accept a lucky child, which the test split then exposes.
 - `train.py` computes its own metric; the harness trusts it. A harness-side
   evaluation on hidden test rows would be stronger.
+- Within a session the agent hill-climbs on one fixed 80/20 split, so its score
+  partly fits that split. On these small datasets AUC moves by about ±0.02-0.03
+  between random splits, which is the scale of "improvement" to be skeptical of.
 - Runs execute LLM-written code locally. Use the E2B sandbox from Tumble for anything untrusted.

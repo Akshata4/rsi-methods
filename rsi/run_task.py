@@ -25,6 +25,8 @@ class DatasetSpec:
     target: str
     metric: str = "accuracy"
     minimize: bool = False
+    split: str = ""          # train / heldout / test, as assigned in the registry
+    description: str = ""
 
 
 @dataclass
@@ -50,7 +52,13 @@ def load_datasets(registry_path: str) -> dict[str, DatasetSpec]:
     base = os.path.dirname(os.path.abspath(registry_path))
     with open(registry_path) as f:
         raw = json.load(f)
-    return {d["name"]: DatasetSpec(**{**d, "path": os.path.join(base, d["path"])}) for d in raw}
+    known = set(DatasetSpec.__dataclass_fields__)
+    return {d["name"]: DatasetSpec(**{k: v for k, v in d.items() if k in known} | {"path": os.path.join(base, d["path"])})
+            for d in raw}
+
+
+def registry_split(registry: dict[str, DatasetSpec], split: str) -> list[str]:
+    return [name for name, spec in registry.items() if spec.split == split]
 
 
 def _print_event(event: dict) -> None:

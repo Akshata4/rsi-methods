@@ -34,7 +34,7 @@ Harness rules (fixed -- these are not yours to change):
   "METRIC: <float>" as its last line of output -- that is your {metric_name}
   ({direction}), computed on a held-out test split made with
   train_test_split(test_size=0.2, random_state=42). Never compute the metric
-  on training rows.
+  on training rows.{metric_note}
 - Use write_file to propose train.py (or your next change), then call
   run_experiment with a one-sentence description of what you changed.
 - run_experiment keeps your change if it beats the best {metric_name} so far
@@ -74,6 +74,14 @@ Reply with ONLY a JSON object:
 
 MAX_PROMPT_CHARS = 6000
 
+# How each metric must be computed, so every improver is scored the same way.
+METRIC_NOTES = {
+    "roc_auc": " Compute it as sklearn.metrics.roc_auc_score(y_test, p) where p is\n"
+               "  the predicted probability (or score) of the positive class, target == 1.",
+    "accuracy": " Compute it as sklearn.metrics.accuracy_score(y_test, y_pred).",
+    "rmse": " Compute it as the square root of sklearn.metrics.mean_squared_error.",
+}
+
 
 @dataclass
 class Improver:
@@ -95,6 +103,7 @@ class Improver:
             metric_name=metric_name,
             direction="lower is better" if minimize else "higher is better",
             round_budget=round_budget,
+            metric_note=METRIC_NOTES.get(metric_name, ""),
         )
         return f"{self.research_prompt.strip()}\n\n{contract}"
 

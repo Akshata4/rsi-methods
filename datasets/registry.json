@@ -1,44 +1,68 @@
 [
   {
-    "name": "diabetes",
-    "path": "diabetes.csv",
+    "name": "heart_cleveland",
+    "path": "heart_cleveland.csv",
     "target": "target",
-    "metric": "rmse",
-    "minimize": true
+    "metric": "roc_auc",
+    "minimize": false,
+    "split": "train",
+    "openml_id": 49,
+    "description": "Heart disease (Cleveland): >50% vessel narrowing",
+    "reference_lr_auc": 0.8772
   },
   {
-    "name": "friedman",
-    "path": "friedman.csv",
+    "name": "heart_hungarian",
+    "path": "heart_hungarian.csv",
     "target": "target",
-    "metric": "rmse",
-    "minimize": true
+    "metric": "roc_auc",
+    "minimize": false,
+    "split": "train",
+    "openml_id": 51,
+    "description": "Heart disease (Hungarian): >50% vessel narrowing; ~20% missing values",
+    "reference_lr_auc": 0.9185
   },
   {
-    "name": "noisy_clf",
-    "path": "noisy_clf.csv",
+    "name": "pima_diabetes",
+    "path": "pima_diabetes.csv",
     "target": "target",
-    "metric": "accuracy",
-    "minimize": false
+    "metric": "roc_auc",
+    "minimize": false,
+    "split": "heldout",
+    "openml_id": 37,
+    "description": "Diabetes onset in Pima women; zeros in some columns mean 'missing'",
+    "reference_lr_auc": 0.8147
   },
   {
-    "name": "hard_clf",
-    "path": "hard_clf.csv",
+    "name": "blood_donation",
+    "path": "blood_donation.csv",
     "target": "target",
-    "metric": "accuracy",
-    "minimize": false
+    "metric": "roc_auc",
+    "minimize": false,
+    "split": "heldout",
+    "openml_id": 1464,
+    "description": "Whether a past blood donor donated again (2 = donated)",
+    "reference_lr_auc": 0.7489
   },
   {
-    "name": "friedman3",
-    "path": "friedman3.csv",
+    "name": "liver_ilpd",
+    "path": "liver_ilpd.csv",
     "target": "target",
-    "metric": "rmse",
-    "minimize": true
+    "metric": "roc_auc",
+    "minimize": false,
+    "split": "test",
+    "openml_id": 1480,
+    "description": "Indian liver patient records (1 = liver patient)",
+    "reference_lr_auc": 0.8134
   },
   {
-    "name": "imbalanced_clf",
-    "path": "imbalanced_clf.csv",
+    "name": "hospital_readmission",
+    "path": "hospital_readmission.csv",
     "target": "target",
-    "metric": "accuracy",
-    "minimize": false
+    "metric": "roc_auc",
+    "minimize": false,
+    "split": "test",
+    "openml_id": 4541,
+    "description": "Diabetes 130-US hospitals: readmitted within 30 days (8,000-row sample)",
+    "reference_lr_auc": 0.6007
   }
 ]
