@@ -1,0 +1,14 @@
+{
+  "title": "RSIFlow, first real run",
+  "notes": "Generation loop and 16 of 20 evaluation sessions ran on 3c43d84. The run then hung for 40 minutes on one API request, was stopped, and the evaluation resumed from cached sessions with the client-timeout fix (8ce4c4a), which ran the 4 flow-static sessions. Both workflow children were rejected as ties: on the held-out datasets the baseline stage decided the score. On test, plain Tumble beat the adaptive seed workflow (+2.0%, clear), fixed-order routing was +2.1% (borderline) and 2x budget +3.4% (clear). The per-stage statistics show why: the adaptive router spent 15 of 20 work experiments in preprocess because its min_gain (0.2%) is below the +-0.9% noise floor. Child 1 proposed raising it, but the held-out datasets could not verify the change. DeepSeek-V3.1 via W&B Inference.",
+  "method": "flow",
+  "provenance": {
+    "git_commit": "3c43d84",
+    "git_dirty": false,
+    "llm_provider": "wandb",
+    "llm_model": "(provider default)",
+    "started_at": "2026-11-17 19:37:14"
+  },
+  "settings": "budget 6 \u00b7 up to 2 generations \u00b7 2 test repeats",
+  "outcome": "0/2 children accepted; champion gen0; plain Tumble vs the RSIFlow seed +2.0% (clear gain); fixed-order routing vs the RSIFlow seed +2.1% (within noise); 2x budget vs the RSIFlow seed +3.4% (clear gain); blind rewrite vs the RSIFlow seed -0.5% (within noise)"
+}

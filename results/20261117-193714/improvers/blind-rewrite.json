@@ -1,0 +1,33 @@
+{
+  "research_prompt": "You are an autonomous ML research scientist. You've been given a dataset and a\nmetric to optimize; your job is to write and iteratively improve a training\nscript, train.py, that models the data as well as possible.",
+  "meta_prompt": "You improve the research WORKFLOW of an autonomous ML research agent. An orchestrator routes each experiment to a stage of this workflow (crash -> fix_errors; a stage that stops improving is set aside; an improving stage is continued); each stage has a short instruction the agent follows.\n\nYou will receive (1) the current workflow as JSON, (2) these meta-instructions, and (3) evidence: per-stage statistics (attempts, kept, crashes, mean gain, whether edits matched their stage) and every experiment's stage and outcome from runs with the current workflow.\n\nFind the bottlenecks: stages that waste experiments, crash, or never help; stages that help and deserve more budget; instructions the agent ignores or misreads; routing thresholds that move on too early or too late. Then write an improved workflow that would reach a better final score within the same experiment budget on NEW, unseen datasets -- focus on general ML research strategies, not specific dataset facts.\n\nRules for the workflow JSON: \"stages\" maps stage name -> instruction (20-600 characters); stages \"baseline\" and \"fix_errors\" must exist and must NOT be in \"order\"; \"order\" lists the other stages in the order to try them; \"rules\" has adaptive (true/false), stay_on_gain (true/false), max_fix_attempts (1-4), plateau_patience (1-4) and min_gain (0-0.05). You may add, remove, rename, merge or reorder the optional stages.",
+  "generation": 1,
+  "parent_id": "gen000-flow-seed",
+  "rationale": "Based on general ML research knowledge, I made several improvements: 1) Renamed 'preprocess' to 'data_quality' to emphasize the importance of thorough data validation and leak prevention. 2) Moved feature engineering earlier in the order as it often provides substantial gains. 3) Renamed 'model' to 'model_selection' to emphasize evaluating multiple candidates. 4) Renamed 'tune' to 'hyperparameter_tuning' for clarity. 5) Increased max_fix_attempts to 3 and plateau_patience to 3 to allow more exploration before moving on. 6) Reduced min_gain to 0.001 to capture smaller but meaningful improvements. 7) Enhanced stage instructions with more specific guidance about cross-validation, systematic approaches, and testing. These changes prioritize foundational data quality and feature work before model selection, and allow more thorough exploration at each stage.",
+  "id": "blind-rewrite",
+  "workflow": {
+    "stages": {
+      "baseline": "Write a robust, simple first train.py: a pipeline with imputation, scaling, one-hot encoding with handle_unknown='ignore', and logistic regression. Include basic cross-validation and metric tracking.",
+      "fix_errors": "The last script crashed. Read the error message carefully, identify the root cause, and fix only that specific issue while preserving all working functionality. Test the fix locally if possible.",
+      "data_quality": "Improve data handling: identify and handle missing values (including zeros that might represent missing data), validate data types, check for data leaks, and ensure proper train-test separation.",
+      "feature_engineering": "Create new features using domain knowledge: ratios, interactions, polynomial features, bins, missingness indicators, and transformations of existing features. Focus on features likely to have predictive power.",
+      "model_selection": "Try different model families appropriate for the problem type (tree ensembles, linear models, neural networks, etc.). Evaluate multiple candidates with cross-validation before selecting the best.",
+      "hyperparameter_tuning": "Systematically tune the current model's most important hyperparameters using grid search, random search, or Bayesian optimization. Focus on parameters that most impact performance.",
+      "ensemble": "Combine the strongest models from previous stages using stacking, blending, or weighted averaging. Ensure diversity in the ensemble members for maximum benefit."
+    },
+    "order": [
+      "data_quality",
+      "feature_engineering",
+      "model_selection",
+      "hyperparameter_tuning",
+      "ensemble"
+    ],
+    "rules": {
+      "adaptive": true,
+      "max_fix_attempts": 3,
+      "plateau_patience": 3,
+      "min_gain": 0.001,
+      "stay_on_gain": true
+    }
+  }
+}

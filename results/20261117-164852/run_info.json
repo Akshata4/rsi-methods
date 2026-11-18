@@ -1,14 +1,12 @@
 {
   "title": "Prompt-only RSI loop, first valid run",
-  "notes": "First run with harness-side scoring on hidden labels (after four aborted runs, see Findings from earlier runs in the top-level README). The improver is gen0 = Tumble's original prompt; each child rewrites the research and meta prompts from its parent's run evidence. Budget 4 experiments per session, at most 2 generations, 2 repeats in the final evaluation. DeepSeek-V3.1 via W&B Inference.",
+  "notes": "First run with harness-side scoring on hidden labels (after four aborted runs, see Findings from earlier runs in the top-level README). gen0 = Tumble's original prompt; each child rewrites the research and meta prompts from its parent's run evidence. Both children were rejected on held-out data (-7.1%, -4.3%). On test, 2x budget was within noise and a no-evidence rewrite was a clear loss. DeepSeek-V3.1 via W&B Inference.",
+  "method": "prompt",
   "provenance": {
     "git_commit": "6cf9de2",
-    "git_commit_source": "given at export"
+    "git_commit_source": "given at export",
+    "started_at": "2026-11-17 16:48:52"
   },
-  "outcome": "0/2 children accepted; champion gen0; no champion beyond gen0 to test",
-  "config_summary": {
-    "budget": 4,
-    "max_generations": 2,
-    "repeats": 2
-  }
+  "settings": "budget 4 \u00b7 up to 2 generations \u00b7 2 test repeats",
+  "outcome": "0/2 children accepted; champion gen0; 2x budget vs gen0 +1.2% (within noise); blind rewrite vs gen0 -4.5% (clear loss)"
 }

@@ -1,0 +1,81 @@
+{
+  "n_labels": 69,
+  "n_rounds": 23,
+  "k": 3,
+  "mean_realized_gain": {
+    "scorer": -0.03320473450303078,
+    "random": -0.03164540388521959,
+    "first": -0.029305652094001943,
+    "oracle": -0.0028752994109024653
+  },
+  "per_dataset": {
+    "blood_donation": {
+      "scorer": -0.026916478406117883,
+      "random": -0.03376675723026335,
+      "first": -0.01737713234282566,
+      "oracle": -0.0026804886455736587
+    },
+    "heart_cleveland": {
+      "scorer": -0.015184805308439743,
+      "random": -0.01852084748763976,
+      "first": -0.019656470673046978,
+      "oracle": 0.01389394970105168
+    },
+    "heart_hungarian": {
+      "scorer": -0.057683466742991296,
+      "random": -0.03780099680375993,
+      "first": -0.04727227330230189,
+      "oracle": -0.0032086845839425352
+    },
+    "pima_diabetes": {
+      "scorer": -0.0371139762612343,
+      "random": -0.03751894617230537,
+      "first": -0.03591116892588323,
+      "oracle": -0.01956153831065202
+    }
+  },
+  "scorer_minus_random": {
+    "mean": -0.0015593306178111942,
+    "ci95": [
+      -0.012505423423481139,
+      0.008928199821004583
+    ]
+  },
+  "top1_hit_rate": 0.34782608695652173,
+  "scorer_pick_crash_rate": 0.08695652173913043,
+  "candidate_crash_rate": 0.07246376811594203,
+  "spearman_pred_vs_actual": 0.05984654731457801,
+  "learning_curve": [
+    {
+      "n_labels": 12,
+      "mean_realized_gain": -0.030735391685760203
+    },
+    {
+      "n_labels": 24,
+      "mean_realized_gain": -0.030401375171921294
+    },
+    {
+      "n_labels": 36,
+      "mean_realized_gain": -0.030778197879657097
+    },
+    {
+      "n_labels": 48,
+      "mean_realized_gain": -0.03172617651379886
+    },
+    {
+      "n_labels": 51,
+      "mean_realized_gain": -0.05248986412296793
+    }
+  ],
+  "scorer_v1_weights": {
+    "parent_score": -0.0017419049368935394,
+    "log_lines_changed": -0.0044739187333353945,
+    "model_changed": -0.012647786497690328,
+    "ensemble_added": 0.0031905079678961968,
+    "preprocessing_touched": 0.006020911896837035,
+    "log_features_added": 0.010502463772659109,
+    "log_hyperparams_changed": -0.005426485657443933,
+    "search_added": -0.006182584336615424,
+    "compiles": 0.0
+  }
+}

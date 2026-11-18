@@ -1,0 +1,12 @@
+{
+  "title": "Budget RSI, first real run",
+  "notes": "Collection on the 4 train + held-out datasets x 2 repeats, budget 4 (1 baseline + 3 candidate rounds), k = 3, every candidate executed: 69 labeled edits in 23 complete rounds. Offline, leave-one-dataset-out: the scorer was no better than a random pick (rank correlation 0.06). Only 11 of 69 edits improved on their parent, and hidden-split noise (+-0.02-0.05 AUC) is larger than most edits' effects. Live: a random pick was a clear loss vs plain Tumble; the scorer's pick was within noise of Tumble and above random on both test datasets (2 repeats: a hint, not evidence). The two charts were regenerated after the run with the labeling fix in e862e6a; the data is unchanged. DeepSeek-V3.1 via W&B Inference.",
+  "method": "budget",
+  "provenance": {
+    "git_commit": "94c1d99",
+    "git_commit_source": "given at export",
+    "started_at": "2026-11-17 17:28:00"
+  },
+  "settings": "k 3 candidates \u00b7 budget 4 \u00b7 2 collect / 2 live repeats",
+  "outcome": "offline: scorer -3.3% vs random -3.2% (diff 95% CI [-1.3%, +0.9%]); live scorer pick vs plain Tumble -0.0% (within noise); live random pick vs plain Tumble -4.9% (clear loss); live first pick vs plain Tumble -26.5% (within noise, 1 crashed run counted as -100%)"
+}

@@ -1,0 +1,14 @@
+{
+  "title": "SO-RSI, first real run",
+  "notes": "The uncommitted changes recorded in provenance were exactly the opposing-edits fix and runner provenance, committed right after as 98369c7 and b0039d5 (one earlier session with the old detector was discarded). Build: 2 rounds x 4 datasets, budget 6; round 2, with lessons from round 1, had fewer failed experiments (4% vs 17%) and fewer anomalies. Test (2 repeats): no AUC difference beyond noise; memory cut failed experiments (8% vs 12%) and gave the most stable hospital result; 19 of 24 test mismatches were score drops within noise, so few diagnoses could be confirmed. DeepSeek-V3.1 via W&B Inference.",
+  "method": "sorsi",
+  "provenance": {
+    "git_commit": "cdcc869",
+    "git_dirty": true,
+    "llm_provider": "wandb",
+    "llm_model": "(provider default)",
+    "started_at": "2026-11-17 18:20:19"
+  },
+  "settings": "budget 6 \u00b7 2 build rounds \u00b7 2 test repeats",
+  "outcome": "SO-RSI without memory vs plain Tumble -1.2% (within noise); SO-RSI with memory vs plain Tumble -0.5% (within noise); 11/36 tested diagnoses confirmed (build + test)"
+}

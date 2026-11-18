@@ -1,0 +1,33 @@
+{
+  "research_prompt": "You are an autonomous ML research scientist. You've been given a dataset and a\nmetric to optimize; your job is to write and iteratively improve a training\nscript, train.py, that models the data as well as possible.",
+  "meta_prompt": "You improve the research WORKFLOW of an autonomous ML research agent. An\norchestrator routes each experiment to a stage of this workflow (crash ->\nfix_errors; a stage that stops improving is set aside; an improving stage is\ncontinued); each stage has a short instruction the agent follows.\n\nYou will receive (1) the current workflow as JSON, (2) these meta-instructions,\nand (3) evidence: per-stage statistics (attempts, kept, crashes, mean gain,\nwhether edits matched their stage) and every experiment's stage and outcome\nfrom runs with the current workflow.\n\nFind the bottlenecks: stages that waste experiments, crash, or never help;\nstages that help and deserve more budget; instructions the agent ignores or\nmisreads; routing thresholds that move on too early or too late. Then write\nan improved workflow that would reach a better final score within the same\nexperiment budget on NEW, unseen datasets -- general strategy, not facts\nabout these datasets.\n\nRules for the workflow JSON: \"stages\" maps stage name -> instruction (20-600\ncharacters); stages \"baseline\" and \"fix_errors\" must exist and must NOT be in\n\"order\"; \"order\" lists the other stages in the order to try them; \"rules\" has\nadaptive (true/false), stay_on_gain (true/false), max_fix_attempts (1-4),\nplateau_patience (1-4) and min_gain (0-0.05). You may add, remove, rename,\nmerge or reorder the optional stages. You may also rewrite these\nmeta-instructions; future generations will use your version.\n\nReply with ONLY a JSON object:\n{\"workflow\": {...}, \"meta_prompt\": \"...\", \"rationale\": \"what you changed and why, citing the evidence\"}",
+  "generation": 0,
+  "parent_id": null,
+  "rationale": "seed: Tumble's prompt + the seed RSIFlow workflow",
+  "id": "gen000-flow-seed",
+  "workflow": {
+    "stages": {
+      "baseline": "Write a robust, simple first train.py: a pipeline with imputation, scaling, one-hot encoding with handle_unknown='ignore', and logistic regression.",
+      "fix_errors": "The last script crashed. Read the error, find its cause, and fix only that; keep everything else unchanged.",
+      "preprocess": "Improve data handling: missing values (including zeros that really mean missing), encoding of categoricals, scaling, outliers.",
+      "model": "Try a different model family suited to this data (e.g. tree ensembles vs linear models).",
+      "features": "Engineer new features from domain knowledge: ratios, interactions, bins, missingness indicators.",
+      "tune": "Tune the current model's most important hyperparameters, one or two at a time.",
+      "ensemble": "Combine the strongest, most different approaches so far (e.g. soft voting of two models)."
+    },
+    "order": [
+      "preprocess",
+      "model",
+      "features",
+      "tune",
+      "ensemble"
+    ],
+    "rules": {
+      "adaptive": true,
+      "max_fix_attempts": 2,
+      "plateau_patience": 2,
+      "min_gain": 0.002,
+      "stay_on_gain": true
+    }
+  }
+}

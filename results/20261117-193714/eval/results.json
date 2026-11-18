@@ -1,0 +1,219 @@
+{
+  "summary": {
+    "gen0": {
+      "per_dataset": {
+        "liver_ilpd": {
+          "mean": 0.7411410347271439,
+          "std": 0.00025056937674932045,
+          "failed_runs": 0,
+          "n": 2
+        },
+        "hospital_readmission": {
+          "mean": 0.6158437824516808,
+          "std": 0.00990479941563478,
+          "failed_runs": 0,
+          "n": 2
+        }
+      },
+      "mean_gain_vs_gen0": 0.0,
+      "ci95": [
+        -0.008469691385013979,
+        0.008469691385013979
+      ],
+      "verdict": "reference",
+      "wasted_rate": 0.5416666666666666,
+      "failure_rate": 0.041666666666666664,
+      "experiments_to_best": 4.0,
+      "gain_over_own_baseline": 0.033581528896565065,
+      "tokens_per_run": 404732.0,
+      "seconds_per_run": 111.07499999999999,
+      "budget": 6,
+      "noise_floor": 0.009287748103168602
+    },
+    "gen0-2x-budget": {
+      "per_dataset": {
+        "liver_ilpd": {
+          "mean": 0.7655917788802268,
+          "std": 0.025808645805178755,
+          "failed_runs": 0,
+          "n": 2
+        },
+        "hospital_readmission": {
+          "mean": 0.63786636494676,
+          "std": 0.017223117324116296,
+          "failed_runs": 0,
+          "n": 2
+        }
+      },
+      "mean_gain_vs_gen0": 0.03437534544673229,
+      "ci95": [
+        0.012175886417325504,
+        0.05657480447613908
+      ],
+      "verdict": "clear gain",
+      "wasted_rate": 0.5833333333333334,
+      "failure_rate": 0.10416666666666666,
+      "experiments_to_best": 10.5,
+      "gain_over_own_baseline": 0.06914515885423678,
+      "tokens_per_run": 829389.5,
+      "seconds_per_run": 198.675,
+      "budget": 12
+    },
+    "blind-rewrite": {
+      "per_dataset": {
+        "liver_ilpd": {
+          "mean": 0.7406094968107724,
+          "std": 0.006013665041983298,
+          "failed_runs": 0,
+          "n": 2
+        },
+        "hospital_readmission": {
+          "mean": 0.6096421209256189,
+          "std": 0.041032994757551004,
+          "failed_runs": 0,
+          "n": 2
+        }
+      },
+      "mean_gain_vs_gen0": -0.005393687383236151,
+      "ci95": [
+        -0.04163287061060794,
+        0.02616899708150682
+      ],
+      "verdict": "within noise",
+      "wasted_rate": 0.7083333333333334,
+      "failure_rate": 0.20833333333333331,
+      "experiments_to_best": 2.75,
+      "gain_over_own_baseline": 0.027873043658797957,
+      "tokens_per_run": 559639.75,
+      "seconds_per_run": 144.025,
+      "budget": 6
+    },
+    "plain-tumble": {
+      "per_dataset": {
+        "liver_ilpd": {
+          "mean": 0.7567328136073705,
+          "std": 0.009271066939724466,
+          "failed_runs": 0,
+          "n": 2
+        },
+        "hospital_readmission": {
+          "mean": 0.6271185619739921,
+          "std": 0.01238579412403241,
+          "failed_runs": 0,
+          "n": 2
+        }
+      },
+      "mean_gain_vs_gen0": 0.019672694626116465,
+      "ci95": [
+        0.008139397839903422,
+        0.03120599141232951
+      ],
+      "verdict": "clear gain",
+      "wasted_rate": 0.3333333333333333,
+      "failure_rate": 0.08333333333333333,
+      "experiments_to_best": 6.0,
+      "gain_over_own_baseline": 0.06512062563879598,
+      "tokens_per_run": 600959.5,
+      "seconds_per_run": 128.05,
+      "budget": 6
+    },
+    "flow-static": {
+      "per_dataset": {
+        "liver_ilpd": {
+          "mean": 0.7694897236002834,
+          "std": 0.03182231084716213,
+          "failed_runs": 0,
+          "n": 2
+        },
+        "hospital_readmission": {
+          "mean": 0.6180175607185481,
+          "std": 0.007460793584723066,
+          "failed_runs": 0,
+          "n": 2
+        }
+      },
+      "mean_gain_vs_gen0": 0.020889907867186155,
+      "ci95": [
+        -0.0007534550396545183,
+        0.05343055223523781
+      ],
+      "verdict": "within noise",
+      "wasted_rate": 0.41666666666666663,
+      "failure_rate": 0.08333333333333333,
+      "experiments_to_best": 5.25,
+      "gain_over_own_baseline": 0.054702753873332136,
+      "tokens_per_run": 521341.25,
+      "seconds_per_run": 123.5,
+      "budget": 6
+    }
+  },
+  "curves": {
+    "gen0": [
+      -0.031825607823968594,
+      -0.023394637646670435,
+      -0.0084531678144141,
+      -0.004459384211735022,
+      -0.004459384211735022,
+      0.0
+    ],
+    "gen0-2x-budget": [
+      -0.03182246187390739,
+      -0.0301490217591572,
+      -0.016907893938301475,
+      -0.001833087867377136,
+      0.0037848896607128035,
+      0.006993758723125352,
+      0.011572689037185556,
+      0.015756289324060944,
+      0.01632177384755964,
+      0.029708548514318374,
+      0.030186674261389802,
+      0.03437534544673229
+    ],
+    "blind-rewrite": [
+      -0.03181931592384618,
+      -0.03181931592384618,
+      -0.03002634437232812,
+      -0.02895056144141735,
+      -0.005393687383236151,
+      -0.005393687383236151
+    ],
+    "plain-tumble": [
+      -0.04018536506332891,
+      0.006151635912044142,
+      0.007890559808366244,
+      0.008432449706405961,
+      0.012238262792929121,
+      0.019672694626116465
+    ],
+    "flow-static": [
+      -0.031825607823968594,
+      -0.030152167709218407,
+      -0.008964404817493535,
+      0.003993840572728642,
+      0.006284092217274033,
+      0.020889907867186155
+    ]
+  },
+  "repeats": 2,
+  "test": [
+    {
+      "name": "liver_ilpd",
+      "path": "/Users/ankursingh/Documents/akshata_develop/rsi-methods/datasets/liver_ilpd.csv",
+      "target": "target",
+      "metric": "roc_auc",
+      "minimize": false,
+      "split": "test",
+      "description": "Indian liver patient records (1 = liver patient)"
+    },
+    {
+      "name": "hospital_readmission",
+      "path": "/Users/ankursingh/Documents/akshata_develop/rsi-methods/datasets/hospital_readmission.csv",
+      "target": "target",
+      "metric": "roc_auc",
+      "minimize": false,
+      "split": "test",
+      "description": "Diabetes 130-US hospitals: readmitted within 30 days (8,000-row sample)"
+    }
+  ]
+}

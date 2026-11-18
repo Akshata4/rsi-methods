@@ -1,19 +1,16 @@
 # Prompt-only RSI loop, first valid run
 
-Run `20261117-164852`
+Prompt-only RSI loop · run `20261117-164852`
 
-First run with harness-side scoring on hidden labels (after four aborted runs, see Findings from earlier runs in the top-level README). The improver is gen0 = Tumble's original prompt; each child rewrites the research and meta prompts from its parent's run evidence. Budget 4 experiments per session, at most 2 generations, 2 repeats in the final evaluation. DeepSeek-V3.1 via W&B Inference.
+First run with harness-side scoring on hidden labels (after four aborted runs, see Findings from earlier runs in the top-level README). gen0 = Tumble's original prompt; each child rewrites the research and meta prompts from its parent's run evidence. Both children were rejected on held-out data (-7.1%, -4.3%). On test, 2x budget was within noise and a no-evidence rewrite was a clear loss. DeepSeek-V3.1 via W&B Inference.
 
-## Setup
-
-- Harness commit: `6cf9de2`
-- Model: None / None
-- Budget: 4 experiments per session · max generations: 2 · patience: 2 · min gain: 1%
-- Train: heart_cleveland, heart_hungarian
-- Held-out: pima_diabetes, blood_donation
-- Test: liver_ilpd, hospital_readmission
+- Harness commit: `6cf9de2` (given at export)
+- Model: wandb / (provider default)
+- Settings: budget 4 · up to 2 generations · 2 test repeats
 
 ## Generation loop
+
+Train: heart_cleveland, heart_hungarian · held-out: pima_diabetes, blood_donation · test: liver_ilpd, hospital_readmission
 
 | Gen | Improver | Parent | pima_diabetes (held-out) | blood_donation (held-out) | Decision |
 |---|---|---|---|---|---|
@@ -77,9 +74,7 @@ A gain only counts as real if its 95% bootstrap CI excludes 0.
 
 ## Improvers
 
-Each improver's full prompts are in `improvers/`. Research prompts:
-
-<details><summary><code>gen000-seed</code> (generation 0, parent <code>None</code>)</summary>
+<details><summary><code>gen000-seed</code> (generation 0, parent <code>None</code>): research prompt</summary>
 
 ```text
 You are an autonomous ML research scientist. You've been given a dataset and a
@@ -89,7 +84,7 @@ script, train.py, that models the data as well as possible.
 
 </details>
 
-<details><summary><code>blind-rewrite</code> (generation 1, parent <code>gen000-seed</code>)</summary>
+<details><summary><code>blind-rewrite</code> (generation 1, parent <code>gen000-seed</code>): research prompt</summary>
 
 ```text
 You are an autonomous ML research scientist. You've been given a dataset and a metric to optimize. Your goal is to iteratively improve a training script (train.py) to maximize performance on the given metric. Follow this systematic approach:
@@ -111,7 +106,7 @@ You are an autonomous ML research scientist. You've been given a dataset and a m
 
 </details>
 
-<details><summary><code>gen001-gen000-child</code> (generation 1, parent <code>gen000-seed</code>)</summary>
+<details><summary><code>gen001-gen000-child</code> (generation 1, parent <code>gen000-seed</code>): research prompt</summary>
 
 ```text
 You are an autonomous ML research scientist. You've been given a dataset and a metric to optimize; your job is to write and iteratively improve a training script, train.py, that models the data as well as possible.
@@ -139,7 +134,7 @@ Follow this systematic approach:
 
 </details>
 
-<details><summary><code>gen002-gen000-child</code> (generation 1, parent <code>gen000-seed</code>)</summary>
+<details><summary><code>gen002-gen000-child</code> (generation 1, parent <code>gen000-seed</code>): research prompt</summary>
 
 ```text
 You are an autonomous ML research scientist. You've been given a dataset and a metric to optimize; your job is to write and iteratively improve a training script, train.py, that models the data as well as possible.
@@ -170,8 +165,8 @@ Example steps:
 
 ## Files
 
-- `sessions.csv`: one row per Tumble session (scores, gain over baseline, wasted rate, tokens)
+- `sessions.csv`: one row per Tumble session
 - `lineage.jsonl`: every generation's scores, decision and rationale
-- `improvers/`: every improver's research and meta prompts
-- `config.json`, `provenance.json`: exact settings and harness version
+- `improvers/`: every improver (prompts, and workflows for RSIFlow)
+- `config.json`, `provenance.json`: settings and harness version
 - 20 sessions in total

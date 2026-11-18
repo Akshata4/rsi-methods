@@ -1,0 +1,466 @@
+{
+  "build": [
+    {
+      "round": 1,
+      "dataset": "heart_cleveland",
+      "lessons_available": 0,
+      "best_metric": 0.9285714285714286,
+      "failure_rate": 0.3333333333333333,
+      "wasted_rate": 0.6666666666666666,
+      "gain_over_baseline": 0.017190278601067054,
+      "repeated_errors": 0,
+      "anomalies": {
+        "recurrence": 1,
+        "opposing": 0,
+        "mismatch": 4
+      },
+      "diagnoses": 4,
+      "diagnoses_tested": 3,
+      "diagnoses_confirmed": 1,
+      "probes": 6,
+      "tokens": 227225
+    },
+    {
+      "round": 1,
+      "dataset": "heart_hungarian",
+      "lessons_available": 1,
+      "best_metric": 0.7982456140350878,
+      "failure_rate": 0.3333333333333333,
+      "wasted_rate": 0.6666666666666666,
+      "gain_over_baseline": 0.008709422011084664,
+      "repeated_errors": 0,
+      "anomalies": {
+        "recurrence": 0,
+        "opposing": 0,
+        "mismatch": 4
+      },
+      "diagnoses": 4,
+      "diagnoses_tested": 3,
+      "diagnoses_confirmed": 3,
+      "probes": 6,
+      "tokens": 211282
+    },
+    {
+      "round": 1,
+      "dataset": "pima_diabetes",
+      "lessons_available": 4,
+      "best_metric": 0.8783333333333333,
+      "failure_rate": 0.0,
+      "wasted_rate": 0.6666666666666666,
+      "gain_over_baseline": 0.007006369426751542,
+      "repeated_errors": 0,
+      "anomalies": {
+        "recurrence": 0,
+        "opposing": 0,
+        "mismatch": 2
+      },
+      "diagnoses": 2,
+      "diagnoses_tested": 1,
+      "diagnoses_confirmed": 0,
+      "probes": 6,
+      "tokens": 154820
+    },
+    {
+      "round": 1,
+      "dataset": "blood_donation",
+      "lessons_available": 4,
+      "best_metric": 0.7083333333333333,
+      "failure_rate": 0.0,
+      "wasted_rate": 0.16666666666666666,
+      "gain_over_baseline": 0.20948616600790526,
+      "repeated_errors": 0,
+      "anomalies": {
+        "recurrence": 0,
+        "opposing": 2,
+        "mismatch": 1
+      },
+      "diagnoses": 2,
+      "diagnoses_tested": 1,
+      "diagnoses_confirmed": 1,
+      "probes": 5,
+      "tokens": 183735
+    },
+    {
+      "round": 2,
+      "dataset": "heart_cleveland",
+      "lessons_available": 5,
+      "best_metric": 0.9296536796536796,
+      "failure_rate": 0.0,
+      "wasted_rate": 0.6666666666666666,
+      "gain_over_baseline": 0.005854800936768041,
+      "repeated_errors": 0,
+      "anomalies": {
+        "recurrence": 0,
+        "opposing": 1,
+        "mismatch": 1
+      },
+      "diagnoses": 2,
+      "diagnoses_tested": 1,
+      "diagnoses_confirmed": 1,
+      "probes": 6,
+      "tokens": 601378
+    },
+    {
+      "round": 2,
+      "dataset": "heart_hungarian",
+      "lessons_available": 6,
+      "best_metric": 0.8145363408521303,
+      "failure_rate": 0.16666666666666666,
+      "wasted_rate": 0.5,
+      "gain_over_baseline": 0.04166666666666674,
+      "repeated_errors": 0,
+      "anomalies": {
+        "recurrence": 0,
+        "opposing": 0,
+        "mismatch": 2
+      },
+      "diagnoses": 2,
+      "diagnoses_tested": 2,
+      "diagnoses_confirmed": 2,
+      "probes": 4,
+      "tokens": 172188
+    },
+    {
+      "round": 2,
+      "dataset": "pima_diabetes",
+      "lessons_available": 8,
+      "best_metric": 0.8840740740740741,
+      "failure_rate": 0.0,
+      "wasted_rate": 0.8333333333333334,
+      "gain_over_baseline": 0.0,
+      "repeated_errors": 0,
+      "anomalies": {
+        "recurrence": 0,
+        "opposing": 0,
+        "mismatch": 2
+      },
+      "diagnoses": 2,
+      "diagnoses_tested": 2,
+      "diagnoses_confirmed": 0,
+      "probes": 3,
+      "tokens": 725973
+    },
+    {
+      "round": 2,
+      "dataset": "blood_donation",
+      "lessons_available": 8,
+      "best_metric": 0.7288011695906432,
+      "failure_rate": 0.0,
+      "wasted_rate": 0.6666666666666666,
+      "gain_over_baseline": 0.09922822491730979,
+      "repeated_errors": 0,
+      "anomalies": {
+        "recurrence": 0,
+        "opposing": 2,
+        "mismatch": 2
+      },
+      "diagnoses": 2,
+      "diagnoses_tested": 2,
+      "diagnoses_confirmed": 0,
+      "probes": 4,
+      "tokens": 158850
+    }
+  ],
+  "summary": {
+    "naive": {
+      "per_dataset": {
+        "liver_ilpd": {
+          "mean": 0.755669737774628,
+          "std": 0.01879270325619817,
+          "failed_runs": 0,
+          "n": 2
+        },
+        "hospital_readmission": {
+          "mean": 0.6343712704784638,
+          "std": 0.005962059067336503,
+          "failed_runs": 0,
+          "n": 2
+        }
+      },
+      "mean_gain_vs_gen0": -3.729655473350135e-17,
+      "ci95": [
+        -0.012115324404309069,
+        0.012115324404308995
+      ],
+      "verdict": "reference",
+      "wasted_rate": 0.49999999999999994,
+      "failure_rate": 0.125,
+      "experiments_to_best": 4.5,
+      "gain_over_own_baseline": 0.05621287705100014,
+      "tokens_per_run": 531490.25,
+      "seconds_per_run": 153.875,
+      "budget": 6,
+      "noise_floor": 0.015349196392470387
+    },
+    "sorsi_nomem": {
+      "per_dataset": {
+        "liver_ilpd": {
+          "mean": 0.7661233167965982,
+          "std": 0.023052382660936465,
+          "failed_runs": 0,
+          "n": 2
+        },
+        "hospital_readmission": {
+          "mean": 0.6103105286814737,
+          "std": 0.03552850180429783,
+          "failed_runs": 0,
+          "n": 2
+        }
+      },
+      "mean_gain_vs_gen0": -0.012047478596237837,
+      "ci95": [
+        -0.05772954384421803,
+        0.024618991793669328
+      ],
+      "verdict": "within noise",
+      "wasted_rate": 0.5,
+      "failure_rate": 0.125,
+      "experiments_to_best": 4.0,
+      "gain_over_own_baseline": 0.06291499375605977,
+      "tokens_per_run": 677210.25,
+      "seconds_per_run": 180.0,
+      "budget": 6
+    },
+    "sorsi": {
+      "per_dataset": {
+        "liver_ilpd": {
+          "mean": 0.7402551381998582,
+          "std": 0.006013665041983377,
+          "failed_runs": 0,
+          "n": 2
+        },
+        "hospital_readmission": {
+          "mean": 0.640642678900789,
+          "std": 0.0031591241289701723,
+          "failed_runs": 0,
+          "n": 2
+        }
+      },
+      "mean_gain_vs_gen0": -0.005256285532287595,
+      "ci95": [
+        -0.020398593200469058,
+        0.009886022135893867
+      ],
+      "verdict": "within noise",
+      "wasted_rate": 0.75,
+      "failure_rate": 0.08333333333333333,
+      "experiments_to_best": 2.5,
+      "gain_over_own_baseline": 0.026959651733584014,
+      "tokens_per_run": 279017.25,
+      "seconds_per_run": 138.325,
+      "budget": 6
+    }
+  },
+  "stats": {
+    "naive": [
+      {
+        "best_metric": 0.7423812898653437,
+        "failure_rate": 0.3333333333333333,
+        "wasted_rate": 0.6666666666666666,
+        "gain_over_baseline": 0.0014340344168260748,
+        "repeated_errors": 0,
+        "anomalies": {
+          "recurrence": 0,
+          "opposing": 0,
+          "mismatch": 0
+        },
+        "diagnoses": 0,
+        "diagnoses_tested": 0,
+        "diagnoses_confirmed": 0,
+        "probes": 0,
+        "tokens": 481769
+      },
+      {
+        "best_metric": 0.7689581856839122,
+        "failure_rate": 0.0,
+        "wasted_rate": 0.5,
+        "gain_over_baseline": 0.025519848771266767,
+        "repeated_errors": 0,
+        "anomalies": {
+          "recurrence": 0,
+          "opposing": 0,
+          "mismatch": 0
+        },
+        "diagnoses": 0,
+        "diagnoses_tested": 0,
+        "diagnoses_confirmed": 0,
+        "probes": 0,
+        "tokens": 509320
+      },
+      {
+        "best_metric": 0.6385870828748121,
+        "failure_rate": 0.16666666666666666,
+        "wasted_rate": 0.3333333333333333,
+        "gain_over_baseline": 0.11534921494315128,
+        "repeated_errors": 0,
+        "anomalies": {
+          "recurrence": 0,
+          "opposing": 0,
+          "mismatch": 0
+        },
+        "diagnoses": 0,
+        "diagnoses_tested": 0,
+        "diagnoses_confirmed": 0,
+        "probes": 0,
+        "tokens": 558976
+      },
+      {
+        "best_metric": 0.6301554580821154,
+        "failure_rate": 0.0,
+        "wasted_rate": 0.5,
+        "gain_over_baseline": 0.08254841007275646,
+        "repeated_errors": 0,
+        "anomalies": {
+          "recurrence": 0,
+          "opposing": 0,
+          "mismatch": 0
+        },
+        "diagnoses": 0,
+        "diagnoses_tested": 0,
+        "diagnoses_confirmed": 0,
+        "probes": 0,
+        "tokens": 575896
+      }
+    ],
+    "sorsi_nomem": [
+      {
+        "best_metric": 0.7498228206945428,
+        "failure_rate": 0.0,
+        "wasted_rate": 0.8333333333333334,
+        "gain_over_baseline": 0.0,
+        "repeated_errors": 0,
+        "anomalies": {
+          "recurrence": 0,
+          "opposing": 0,
+          "mismatch": 3
+        },
+        "diagnoses": 3,
+        "diagnoses_tested": 3,
+        "diagnoses_confirmed": 0,
+        "probes": 6,
+        "tokens": 181338
+      },
+      {
+        "best_metric": 0.7824238128986535,
+        "failure_rate": 0.0,
+        "wasted_rate": 0.3333333333333333,
+        "gain_over_baseline": 0.06307173808377477,
+        "repeated_errors": 0,
+        "anomalies": {
+          "recurrence": 0,
+          "opposing": 2,
+          "mismatch": 2
+        },
+        "diagnoses": 3,
+        "diagnoses_tested": 2,
+        "diagnoses_confirmed": 1,
+        "probes": 6,
+        "tokens": 196556
+      },
+      {
+        "best_metric": 0.6354329732326912,
+        "failure_rate": 0.0,
+        "wasted_rate": 0.16666666666666666,
+        "gain_over_baseline": 0.14403912294287138,
+        "repeated_errors": 0,
+        "anomalies": {
+          "recurrence": 0,
+          "opposing": 1,
+          "mismatch": 1
+        },
+        "diagnoses": 1,
+        "diagnoses_tested": 0,
+        "diagnoses_confirmed": 0,
+        "probes": 5,
+        "tokens": 269111
+      },
+      {
+        "best_metric": 0.5851880841302562,
+        "failure_rate": 0.5,
+        "wasted_rate": 0.6666666666666666,
+        "gain_over_baseline": 0.04454911399759294,
+        "repeated_errors": 1,
+        "anomalies": {
+          "recurrence": 1,
+          "opposing": 0,
+          "mismatch": 4
+        },
+        "diagnoses": 4,
+        "diagnoses_tested": 3,
+        "diagnoses_confirmed": 1,
+        "probes": 6,
+        "tokens": 2061836
+      }
+    ],
+    "sorsi": [
+      {
+        "best_metric": 0.7360028348688873,
+        "failure_rate": 0.0,
+        "wasted_rate": 0.8333333333333334,
+        "gain_over_baseline": 0.0,
+        "repeated_errors": 0,
+        "anomalies": {
+          "recurrence": 1,
+          "opposing": 0,
+          "mismatch": 3
+        },
+        "diagnoses": 4,
+        "diagnoses_tested": 4,
+        "diagnoses_confirmed": 0,
+        "probes": 6,
+        "tokens": 251191
+      },
+      {
+        "best_metric": 0.7445074415308292,
+        "failure_rate": 0.0,
+        "wasted_rate": 0.6666666666666666,
+        "gain_over_baseline": 0.004302103250478075,
+        "repeated_errors": 0,
+        "anomalies": {
+          "recurrence": 0,
+          "opposing": 0,
+          "mismatch": 3
+        },
+        "diagnoses": 3,
+        "diagnoses_tested": 3,
+        "diagnoses_confirmed": 1,
+        "probes": 6,
+        "tokens": 202669
+      },
+      {
+        "best_metric": 0.6428765169949938,
+        "failure_rate": 0.3333333333333333,
+        "wasted_rate": 0.8333333333333334,
+        "gain_over_baseline": 0.0,
+        "repeated_errors": 1,
+        "anomalies": {
+          "recurrence": 1,
+          "opposing": 0,
+          "mismatch": 4
+        },
+        "diagnoses": 4,
+        "diagnoses_tested": 3,
+        "diagnoses_confirmed": 0,
+        "probes": 6,
+        "tokens": 320632
+      },
+      {
+        "best_metric": 0.6384088408065841,
+        "failure_rate": 0.0,
+        "wasted_rate": 0.6666666666666666,
+        "gain_over_baseline": 0.10353650368385799,
+        "repeated_errors": 0,
+        "anomalies": {
+          "recurrence": 1,
+          "opposing": 1,
+          "mismatch": 4
+        },
+        "diagnoses": 4,
+        "diagnoses_tested": 3,
+        "diagnoses_confirmed": 0,
+        "probes": 6,
+        "tokens": 341577
+      }
+    ]
+  }
+}
