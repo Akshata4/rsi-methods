@@ -2,6 +2,12 @@ import os
 
 from openai import OpenAI
 
+# Without an explicit timeout a stalled HTTPS response can block a run forever
+# (a real RSIFlow run sat 40 minutes on one hung request). Each attempt now
+# gives up after REQUEST_TIMEOUT seconds and is retried up to MAX_RETRIES times.
+REQUEST_TIMEOUT = 120.0
+MAX_RETRIES = 3
+
 PROVIDER_DEFAULTS = {
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1",
@@ -31,11 +37,15 @@ def get_client_and_model() -> tuple[OpenAI, str]:
             base_url=defaults["base_url"],
             api_key=os.environ["WANDB_API_KEY"],
             project=os.environ["WANDB_PROJECT"],
+            timeout=REQUEST_TIMEOUT,
+            max_retries=MAX_RETRIES,
         )
     else:  # openrouter
         client = OpenAI(
             base_url=defaults["base_url"],
             api_key=os.environ["OPENROUTER_API_KEY"],
+            timeout=REQUEST_TIMEOUT,
+            max_retries=MAX_RETRIES,
             default_headers={
                 "HTTP-Referer": "https://github.com/local/harness-from-scratch",
                 "X-Title": "harness-from-scratch",
