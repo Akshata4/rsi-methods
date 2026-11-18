@@ -111,7 +111,10 @@ class CandidateWorkspace(Workspace):
         chosen, predicted = self._choose(features)
 
         to_run = range(self.k) if self.policy == "all" else [chosen]
-        outcomes = {i: self.execute(codes[i]) for i in to_run}
+        outcomes, folds = {}, {}
+        for i in to_run:
+            outcomes[i] = self.execute(codes[i])
+            folds[i] = self.last_fold_scores
         if self.policy == "all":  # collection mode keeps the best of all candidates
             scored = [i for i in to_run if outcomes[i][0] is not None]
             if scored:
@@ -131,7 +134,7 @@ class CandidateWorkspace(Workspace):
         metric, error = outcomes[chosen]
         extra = {"candidates": self.k, "picked_candidate": chosen + 1, "executed": len(to_run)}
         result = self._keep_or_revert(state, iteration, descriptions[chosen], codes[chosen], metric, error,
-                                      executions=len(to_run), extra=extra)
+                                      executions=len(to_run), extra=extra, fold_scores=folds[chosen])
         lines = [f"Candidate {chosen + 1} of {self.k} was selected and run: {descriptions[chosen]}", result]
         if self.policy == "all":  # collection mode: every candidate ran, so report them all
             for i in to_run:

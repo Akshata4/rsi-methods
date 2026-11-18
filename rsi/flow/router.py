@@ -26,6 +26,7 @@ class Outcome:
     stage: str
     crashed: bool
     gain: float | None     # relative gain over the best before this experiment (None if crashed or no best yet)
+    kept: bool | None = None  # the harness's (noise-aware) keep decision, when available
 
 
 class Router:
@@ -37,7 +38,12 @@ class Router:
         return BASELINE, "every session starts with a baseline"
 
     def _improved(self, o: Outcome) -> bool:
-        return o.gain is not None and o.gain > self.r["min_gain"]
+        """Progress = the harness kept it AND it cleared min_gain. Under version-2 scoring
+        'kept' already means consistent across folds, so noise no longer counts as progress
+        (version 1's router stayed in a stage on noise-level gains)."""
+        if o.gain is None or o.gain <= self.r["min_gain"]:
+            return False
+        return o.kept is not False
 
     def _work_stages(self, outcomes: list[Outcome]) -> list[Outcome]:
         return [o for o in outcomes if o.stage not in (BASELINE, FIX)]

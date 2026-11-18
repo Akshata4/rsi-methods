@@ -140,7 +140,8 @@ class SORSIWorkspace(Workspace):
         kept = state["history"][-1]["kept"]
         added, removed = edit_lines(parent, code)
         step = Step(iteration, description, expected_direction, metric, best_before, kept, error_signature(error),
-                    added, removed, edit_kinds(parent, code) if parent else frozenset())
+                    added, removed, edit_kinds(parent, code) if parent else frozenset(),
+                    paired_t=state["history"][-1].get("paired_t"))
         self._steps.append(step)
         self._log("step", iteration=iteration, description=description, expected=expected_direction,
                   expectation=expectation, metric=metric, kept=kept, error_signature=step.error_signature)

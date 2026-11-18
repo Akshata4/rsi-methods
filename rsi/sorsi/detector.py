@@ -10,6 +10,7 @@ switch it off, and an anomaly is a fact about the trace, not the agent's opinion
                  recent edit added (e.g. tuning 100 -> 200) is NOT opposing.
     mismatch     the agent predicted an improvement (or no change) and the
                  script crashed or the score clearly moved the other way
+                 (version 2: |paired t| >= 2 across folds, not a 1% move on one split)
 """
 
 import difflib
@@ -18,8 +19,9 @@ from dataclasses import dataclass, field
 
 from rsi.budget.features import edit_features
 
-MISMATCH_DROP = 0.01      # expected "improve" but the score fell by more than 1% (relative)
-NO_CHANGE_BAND = 0.02     # expected "no_change" but the score moved by more than 2%
+MISMATCH_DROP = 0.01      # version 1: expected "improve" but the score fell by more than 1% (relative)
+NO_CHANGE_BAND = 0.02     # version 1: expected "no_change" but the score moved by more than 2%
+MISMATCH_T = 2.0          # version 2: |paired t| over the folds, vs the best so far, to call it "clearly" different
 OPPOSING_WINDOW = 3       # look this many experiments back for undone edits
 EDIT_KINDS = ("model_changed", "ensemble_added", "preprocessing_touched", "log_features_added",
               "log_hyperparams_changed", "search_added")
@@ -38,6 +40,7 @@ class Step:
     added: set[str] = field(default_factory=set)
     removed: set[str] = field(default_factory=set)
     kinds: frozenset = frozenset()
+    paired_t: float | None = None  # version 2: per-fold improvement over the best so far, as a t statistic
 
 
 @dataclass
@@ -120,6 +123,13 @@ def detect(steps: list[Step], minimize: bool) -> list[Anomaly]:
         if cur.metric is None:
             found.append(Anomaly("mismatch", f"expected '{cur.expected}' but the script failed "
                                  f"({cur.error_signature})", [cur.iteration]))
+        elif cur.paired_t is not None:  # version 2: is the difference clear across folds?
+            if cur.expected == "improve" and cur.paired_t <= -MISMATCH_T:
+                found.append(Anomaly("mismatch", f"expected an improvement but the score is clearly worse across "
+                                     f"folds (paired t = {cur.paired_t:.1f})", [cur.iteration]))
+            elif cur.expected == "no_change" and abs(cur.paired_t) >= MISMATCH_T:
+                found.append(Anomaly("mismatch", f"expected no change but the score moved clearly across folds "
+                                     f"(paired t = {cur.paired_t:+.1f})", [cur.iteration]))
         elif cur.best_before is not None:
             rel = _relative(cur.metric, cur.best_before, minimize)
             if cur.expected == "improve" and rel < -MISMATCH_DROP:

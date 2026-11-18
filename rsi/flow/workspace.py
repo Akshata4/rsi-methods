@@ -74,7 +74,7 @@ class FlowWorkspace(Workspace):
         message = self._keep_or_revert(state, iteration, description, code, metric, error,
                                        extra={"stage": stage, "on_stage": on_stage, "gain": gain})
 
-        self.outcomes.append(Outcome(stage, metric is None, gain))
+        self.outcomes.append(Outcome(stage, metric is None, gain, kept=state["history"][-1]["kept"]))
         self.stage, self.reason = self.router.next(self.outcomes)
         self._log("experiment", iteration=iteration, stage=stage, metric=metric, gain=gain,
                   kept=state["history"][-1]["kept"], crashed=metric is None, on_stage=on_stage,
