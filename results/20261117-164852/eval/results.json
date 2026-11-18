@@ -1,0 +1,137 @@
+{
+  "summary": {
+    "gen0": {
+      "per_dataset": {
+        "liver_ilpd": {
+          "mean": 0.768781006378455,
+          "std": 0.0493621672196137,
+          "failed_runs": 0,
+          "n": 2
+        },
+        "hospital_readmission": {
+          "mean": 0.6336292409987756,
+          "std": 0.0,
+          "failed_runs": 1,
+          "n": 2
+        }
+      },
+      "mean_gain_vs_gen0": -0.25000000000000006,
+      "ci95": [
+        -0.75,
+        0.022701083198893718
+      ],
+      "verdict": "reference",
+      "wasted_rate": 0.625,
+      "failure_rate": 0.3125,
+      "experiments_to_best": 2.3333333333333335,
+      "gain_over_own_baseline": 0.07512681907183796,
+      "tokens_per_run": 388364.75,
+      "seconds_per_run": 77.55,
+      "budget": 4,
+      "noise_floor": 0.04540216639778751
+    },
+    "gen0-2x-budget": {
+      "per_dataset": {
+        "liver_ilpd": {
+          "mean": 0.786144578313253,
+          "std": 0.011275621953718873,
+          "failed_runs": 0,
+          "n": 2
+        },
+        "hospital_readmission": {
+          "mean": 0.6341581549621041,
+          "std": 0.013014605041290562,
+          "failed_runs": 0,
+          "n": 2
+        }
+      },
+      "mean_gain_vs_gen0": 0.011710293288193792,
+      "ci95": [
+        -0.006427171463603449,
+        0.027771375893062947
+      ],
+      "verdict": "within noise",
+      "wasted_rate": 0.625,
+      "failure_rate": 0.21875,
+      "experiments_to_best": 5.75,
+      "gain_over_own_baseline": 0.15519579756869872,
+      "tokens_per_run": 853195.25,
+      "seconds_per_run": 166.82500000000002,
+      "budget": 8
+    },
+    "blind-rewrite": {
+      "per_dataset": {
+        "liver_ilpd": {
+          "mean": 0.7515946137491141,
+          "std": 0.013029607590964115,
+          "failed_runs": 0,
+          "n": 2
+        },
+        "hospital_readmission": {
+          "mean": 0.5905372835908802,
+          "std": 0.048882856535087435,
+          "failed_runs": 0,
+          "n": 2
+        }
+      },
+      "mean_gain_vs_gen0": -0.04518176961163783,
+      "ci95": [
+        -0.09528388712394792,
+        -0.011913876193565173
+      ],
+      "verdict": "clear loss",
+      "wasted_rate": 0.4375,
+      "failure_rate": 0.3125,
+      "experiments_to_best": 3.75,
+      "gain_over_own_baseline": 0.030567348207249333,
+      "tokens_per_run": 411201.5,
+      "seconds_per_run": 78.94999999999999,
+      "budget": 4
+    }
+  },
+  "curves": {
+    "gen0": [
+      -0.06868335349999546,
+      -0.025197818237689264,
+      -0.025197818237689264,
+      -4.85722573273506e-17
+    ],
+    "gen0-2x-budget": [
+      -0.0301912883152802,
+      -0.10604693527451005,
+      -0.08254051880480674,
+      -0.08254051880480674,
+      -0.026929031296214035,
+      -0.0067715013847940405,
+      0.008439376697713476,
+      0.011710293288193792
+    ],
+    "blind-rewrite": [
+      -0.05696216278285493,
+      -0.05103521672191389,
+      -0.0689163166536633,
+      -0.04518176961163783
+    ]
+  },
+  "repeats": 2,
+  "test": [
+    {
+      "name": "liver_ilpd",
+      "path": "/Users/ankursingh/Documents/akshata_develop/rsi-methods/datasets/liver_ilpd.csv",
+      "target": "target",
+      "metric": "roc_auc",
+      "minimize": false,
+      "split": "test",
+      "description": "Indian liver patient records (1 = liver patient)"
+    },
+    {
+      "name": "hospital_readmission",
+      "path": "/Users/ankursingh/Documents/akshata_develop/rsi-methods/datasets/hospital_readmission.csv",
+      "target": "target",
+      "metric": "roc_auc",
+      "minimize": false,
+      "split": "test",
+      "description": "Diabetes 130-US hospitals: readmitted within 30 days (8,000-row sample)"
+    }
+  ]
+}

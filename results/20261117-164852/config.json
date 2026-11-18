@@ -1,0 +1,67 @@
+{
+  "train": [
+    {
+      "name": "heart_cleveland",
+      "path": "/Users/ankursingh/Documents/akshata_develop/rsi-methods/datasets/heart_cleveland.csv",
+      "target": "target",
+      "metric": "roc_auc",
+      "minimize": false,
+      "split": "train",
+      "description": "Heart disease (Cleveland): >50% vessel narrowing"
+    },
+    {
+      "name": "heart_hungarian",
+      "path": "/Users/ankursingh/Documents/akshata_develop/rsi-methods/datasets/heart_hungarian.csv",
+      "target": "target",
+      "metric": "roc_auc",
+      "minimize": false,
+      "split": "train",
+      "description": "Heart disease (Hungarian): >50% vessel narrowing; ~20% missing values"
+    }
+  ],
+  "heldout": [
+    {
+      "name": "pima_diabetes",
+      "path": "/Users/ankursingh/Documents/akshata_develop/rsi-methods/datasets/pima_diabetes.csv",
+      "target": "target",
+      "metric": "roc_auc",
+      "minimize": false,
+      "split": "heldout",
+      "description": "Diabetes onset in Pima women; zeros in some columns mean 'missing'"
+    },
+    {
+      "name": "blood_donation",
+      "path": "/Users/ankursingh/Documents/akshata_develop/rsi-methods/datasets/blood_donation.csv",
+      "target": "target",
+      "metric": "roc_auc",
+      "minimize": false,
+      "split": "heldout",
+      "description": "Whether a past blood donor donated again (2 = donated)"
+    }
+  ],
+  "budget": 4,
+  "max_generations": 2,
+  "patience": 2,
+  "min_gain": 0.01,
+  "out_root": "runs",
+  "test": [
+    {
+      "name": "liver_ilpd",
+      "path": "/Users/ankursingh/Documents/akshata_develop/rsi-methods/datasets/liver_ilpd.csv",
+      "target": "target",
+      "metric": "roc_auc",
+      "minimize": false,
+      "split": "test",
+      "description": "Indian liver patient records (1 = liver patient)"
+    },
+    {
+      "name": "hospital_readmission",
+      "path": "/Users/ankursingh/Documents/akshata_develop/rsi-methods/datasets/hospital_readmission.csv",
+      "target": "target",
+      "metric": "roc_auc",
+      "minimize": false,
+      "split": "test",
+      "description": "Diabetes 130-US hospitals: readmitted within 30 days (8,000-row sample)"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "title": "Prompt-only RSI loop, first valid run",
+  "notes": "First run with harness-side scoring on hidden labels (after four aborted runs, see Findings from earlier runs in the top-level README). The improver is gen0 = Tumble's original prompt; each child rewrites the research and meta prompts from its parent's run evidence. Budget 4 experiments per session, at most 2 generations, 2 repeats in the final evaluation. DeepSeek-V3.1 via W&B Inference.",
+  "provenance": {
+    "git_commit": "6cf9de2",
+    "git_commit_source": "given at export"
+  },
+  "outcome": "0/2 children accepted; champion gen0; no champion beyond gen0 to test",
+  "config_summary": {
+    "budget": 4,
+    "max_generations": 2,
+    "repeats": 2
+  }
+}

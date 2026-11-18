@@ -18,6 +18,7 @@ so it can't win by memorizing tricks for one dataset (course labs 09.05-09.06).
 
 import json
 import os
+import subprocess
 import time
 from dataclasses import asdict, dataclass, field
 
@@ -59,6 +60,22 @@ def _run_stats(results: list[RunResult]) -> dict:
             | {"tokens": r.total_tokens} for r in results}
 
 
+def _provenance() -> dict:
+    """Which version of the harness produced this run: the git commit, and
+    whether there were uncommitted changes (a 'dirty' run isn't reproducible
+    from the commit alone)."""
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    git = lambda *a: subprocess.run(["git", *a], cwd=repo, capture_output=True, text=True).stdout.strip()
+    model = os.environ.get("LLM_MODEL") or ""
+    return {
+        "git_commit": git("rev-parse", "--short", "HEAD") or None,
+        "git_dirty": bool(git("status", "--porcelain", "--untracked-files=no")),
+        "llm_provider": os.environ.get("LLM_PROVIDER", "wandb"),
+        "llm_model": model or "(provider default)",
+        "started_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
 def run_generations(cfg: GenerationConfig, seed: Improver | None = None) -> str:
     """Runs the loop and returns the run directory (champion id is in champion.txt)."""
     run_dir = os.path.join(cfg.out_root, time.strftime("%Y%m%d-%H%M%S"))
@@ -67,6 +84,8 @@ def run_generations(cfg: GenerationConfig, seed: Improver | None = None) -> str:
     os.makedirs(run_dir, exist_ok=True)
     with open(os.path.join(run_dir, "config.json"), "w") as f:
         json.dump(asdict(cfg), f, indent=2)
+    with open(os.path.join(run_dir, "provenance.json"), "w") as f:
+        json.dump(_provenance(), f, indent=2)
 
     def log(record: dict) -> None:
         with open(lineage_path, "a") as f:
