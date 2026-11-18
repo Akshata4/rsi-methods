@@ -1,5 +1,19 @@
 # rsi-methods
 
+**Video walkthrough (all parts and all three methods):** https://youtu.be/xOJ2_Xi8POA
+
+| Topic | What it does | Video |
+|---|---|---|
+| Problem area and datasets | Clinical risk prediction on 6 public OpenML datasets (heart disease, diabetes, blood donation, liver disease, hospital readmission), scored by ROC-AUC and split into train / held-out / test | [Watch](https://youtu.be/xOJ2_Xi8POA) |
+| Base agent: Tumble | An ML research agent that writes `train.py`, runs it, and keeps a change only if the harness's score improves | [Watch](https://youtu.be/xOJ2_Xi8POA) |
+| Recursive improvement loop | The improver (its research and meta prompts) writes its own successor from run evidence; a child is kept only if it beats its parent on held-out data | [Watch](https://youtu.be/xOJ2_Xi8POA) |
+| Honest scoring | The harness, not the agent, scores predictions on hidden labels (added after an agent leaked labels and reported a fake 0.80 AUC) | [Watch](https://youtu.be/xOJ2_Xi8POA) |
+| Method 1: Budget RSI | The agent proposes 3 candidate edits per round and a small learned scorer picks which one to run. Result: the scorer was no better than random | [Watch](https://youtu.be/xOJ2_Xi8POA) |
+| Method 2: SO-RSI | Detects repeated errors, flip-flopping edits and wrong predictions, forces a diagnosis before the next fix, and keeps confirmed lessons. Result: fewer crashes, no AUC gain | [Watch](https://youtu.be/xOJ2_Xi8POA) |
+| Method 3: RSIFlow | An orchestrator routes experiments through workflow stages and a meta-agent evolves the workflow. Result: adaptive routing chased noise; plain Tumble did better | [Watch](https://youtu.be/xOJ2_Xi8POA) |
+| Measurement version 2 | Scores every script on 5 hidden folds and keeps only consistent gains, cutting measurement noise 5-13x | [Watch](https://youtu.be/xOJ2_Xi8POA) |
+| Results log | Every real run recorded in `results/` with its settings, harness version and caveats ([jump to the log](#results-log)) | [Watch](https://youtu.be/xOJ2_Xi8POA) |
+
 Recursive self-improvement (RSI) built on top of **Tumble**, an autonomous ML
 research agent that writes and iteratively improves `train.py` for a dataset.
 
