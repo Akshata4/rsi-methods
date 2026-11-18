@@ -1,0 +1,13 @@
+[project]
+name = "rsi-methods"
+version = "0.1.0"
+description = "Recursive self-improvement methods built on the Tumble autoresearch loop"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=1.40",
+    "python-dotenv>=1.0",
+    "scikit-learn>=1.5",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "matplotlib>=3.8",
+]
