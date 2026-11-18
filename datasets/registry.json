@@ -8,7 +8,7 @@
     "split": "train",
     "openml_id": 49,
     "description": "Heart disease (Cleveland): >50% vessel narrowing",
-    "reference_lr_auc": 0.8772
+    "reference_lr_auc": 0.9297
   },
   {
     "name": "heart_hungarian",
@@ -19,7 +19,7 @@
     "split": "train",
     "openml_id": 51,
     "description": "Heart disease (Hungarian): >50% vessel narrowing; ~20% missing values",
-    "reference_lr_auc": 0.9185
+    "reference_lr_auc": 0.812
   },
   {
     "name": "pima_diabetes",
@@ -30,7 +30,7 @@
     "split": "heldout",
     "openml_id": 37,
     "description": "Diabetes onset in Pima women; zeros in some columns mean 'missing'",
-    "reference_lr_auc": 0.8147
+    "reference_lr_auc": 0.8841
   },
   {
     "name": "blood_donation",
@@ -41,7 +41,7 @@
     "split": "heldout",
     "openml_id": 1464,
     "description": "Whether a past blood donor donated again (2 = donated)",
-    "reference_lr_auc": 0.7489
+    "reference_lr_auc": 0.7273
   },
   {
     "name": "liver_ilpd",
@@ -52,7 +52,7 @@
     "split": "test",
     "openml_id": 1480,
     "description": "Indian liver patient records (1 = liver patient)",
-    "reference_lr_auc": 0.8134
+    "reference_lr_auc": 0.7364
   },
   {
     "name": "hospital_readmission",
@@ -63,6 +63,6 @@
     "split": "test",
     "openml_id": 4541,
     "description": "Diabetes 130-US hospitals: readmitted within 30 days (8,000-row sample)",
-    "reference_lr_auc": 0.6007
+    "reference_lr_auc": 0.5806
   }
 ]

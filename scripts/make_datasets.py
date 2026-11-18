@@ -18,18 +18,21 @@ import json
 import os
 import warnings
 
+import sys
+
 import numpy as np
 import pandas as pd
 from sklearn.datasets import fetch_openml
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import train_test_split
 from sklearn.compose import make_column_selector, make_column_transformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+from tumble_core.workspace import split_hidden  # noqa: E402  (the harness's own dev/hidden split)
 OUT = os.path.join(ROOT, "datasets")
 CACHE = os.path.join(OUT, ".openml_cache")
 
@@ -53,10 +56,12 @@ SPLITS = {
 
 
 def reference_auc(df: pd.DataFrame) -> float:
-    """A plain logistic-regression baseline on the harness's fixed split,
-    so we know each dataset's starting point and that it isn't already solved."""
-    X, y = df.drop(columns=["target"]), df["target"]
-    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
+    """A plain logistic-regression baseline scored exactly like the harness scores
+    agents (trained on the dev part, scored on the hidden part), so we know each
+    dataset's starting point and that it isn't already solved."""
+    dev, hidden = split_hidden(df, "target")
+    Xtr, ytr = dev.drop(columns=["target"]), dev["target"]
+    Xte, yte = hidden.drop(columns=["target"]), hidden["target"]
     pre = make_column_transformer(
         (make_pipeline(SimpleImputer(), StandardScaler()), make_column_selector(dtype_include="number")),
         (make_pipeline(SimpleImputer(strategy="most_frequent"), OneHotEncoder(handle_unknown="ignore")),

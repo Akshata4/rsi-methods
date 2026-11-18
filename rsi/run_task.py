@@ -76,7 +76,7 @@ def run_improver_on_dataset(
     workspace = Workspace(workspace_dir, executor, max_experiments=budget)
     workspace.init(dataset.path, dataset.target, dataset.metric, dataset.minimize)
 
-    preview = build_preview(dataset.path, dataset.target)
+    preview = build_preview(workspace.dev_path, dataset.target)  # the agent's view: dev rows only
     system_prompt = improver.system_prompt(preview, dataset.target, dataset.metric, dataset.minimize, budget)
     prompt = f"Improve {dataset.metric} as much as you can within your budget of {budget} experiments, then write your final report."
 

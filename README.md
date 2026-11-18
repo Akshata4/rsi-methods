@@ -16,14 +16,15 @@ missing values, zeros-meaning-missing and messy codes are left in on purpose.
 
 | Dataset | OpenML id | Rows | Features | Positive % | Split | Baseline LR AUC |
 |---|---|---|---|---|---|---|
-| Heart disease, Cleveland | 49 | 303 | 13 | 46% | train | 0.877 |
-| Heart disease, Hungarian (20% missing) | 51 | 294 | 13 | 36% | train | 0.919 |
-| Pima diabetes onset | 37 | 768 | 8 | 35% | held-out | 0.815 |
-| Blood donation (returns to donate) | 1464 | 748 | 4 | 24% | held-out | 0.749 |
-| Indian liver patients (ILPD) | 1480 | 583 | 10 | 71% | test | 0.813 |
-| Diabetes 130-US hospitals, readmitted <30 days (8k sample) | 4541 | 8000 | 47 | 11% | test | 0.601 |
+| Heart disease, Cleveland | 49 | 303 | 13 | 46% | train | 0.930 |
+| Heart disease, Hungarian (20% missing) | 51 | 294 | 13 | 36% | train | 0.812 |
+| Pima diabetes onset | 37 | 768 | 8 | 35% | held-out | 0.884 |
+| Blood donation (returns to donate) | 1464 | 748 | 4 | 24% | held-out | 0.727 |
+| Indian liver patients (ILPD) | 1480 | 583 | 10 | 71% | test | 0.736 |
+| Diabetes 130-US hospitals, readmitted <30 days (8k sample) | 4541 | 8000 | 47 | 11% | test | 0.581 |
 
-Baseline = plain logistic regression on the harness's fixed 80/20 split.
+Baseline = plain logistic regression trained on the dev part and scored on the
+hidden part, exactly the way the harness scores the agent.
 Datasets were chosen from 12 clinical candidates by probing: excluded were
 ones already near-solved (thyroid "sick" AUC 0.999, SPECTF 0.976,
 heart-statlog 0.947), ones with almost no signal (thoracic surgery ~0.52), and
@@ -120,19 +121,28 @@ a large gap means the loop over-fit its held-out set.
 
 ## Fairness guards
 
-- The improver can't change the scoring: split, METRIC protocol, budget and
-  keep/revert rule live in the harness (`HARNESS_CONTRACT`, `Workspace`).
+- **The harness scores, not the agent.** Each dataset is split 80/20 into a dev
+  part (`dataset.csv`, with labels) and a hidden part (`test_features.csv`, no
+  labels). `train.py` writes `predictions.csv`; the harness scores it against
+  hidden labels that exist only in its memory. This was added after a real run
+  in which an agent target-encoded over all rows before its own split and
+  reported a fake 0.80 AUC on readmission; under harness scoring that same
+  script gets 0.58, below an honest version (0.60).
+- The improver can't change the scoring: the predictions protocol, the hidden
+  split, budget and keep/revert rule live in the harness (`HARNESS_CONTRACT`, `Workspace`).
 - Improvers are judged only on held-out datasets that never appear in their evidence.
-- A child must win on a majority of datasets **and** by a relative margin (`--min-gain`).
+- A child must beat its parent by a mean relative margin (`--min-gain`, default 1%) **and**
+  win on more held-out datasets than it loses; per-dataset differences under 0.5% are ties.
 - The number of generations is bounded, with an early stop on repeated rejections.
 
 ## Known limitations (to address)
 
 - The loop itself runs each (improver, dataset) once; only the final evaluation repeats.
   A noisy held-out result can still accept a lucky child, which the test split then exposes.
-- `train.py` computes its own metric; the harness trusts it. A harness-side
-  evaluation on hidden test rows would be stronger.
-- Within a session the agent hill-climbs on one fixed 80/20 split, so its score
-  partly fits that split. On these small datasets AUC moves by about ±0.02-0.03
-  between random splits, which is the scale of "improvement" to be skeptical of.
+- Tool results are capped at 40k characters (an agent reading a whole 8k-row CSV
+  otherwise overflows the model's context window).
+- Within a session keep/revert uses the hidden-split score, so the agent still
+  hill-climbs on one fixed split (it never sees the labels, but it does see which
+  edits scored higher). On these small datasets AUC moves by ±0.02-0.05 between
+  random splits, which is the scale of "improvement" to be skeptical of.
 - Runs execute LLM-written code locally. Use the E2B sandbox from Tumble for anything untrusted.

@@ -9,6 +9,15 @@ Changes from Tumble:
 The keep/revert rule is still deterministic and owned by the harness, not the
 LLM. That matters even more for RSI: an improver may rewrite its own strategy,
 but it must never be able to rewrite how it is scored.
+
+Scoring is harness-side (change from Tumble, where train.py printed its own
+metric). At init the dataset is split into a DEV part (dataset.csv, with
+labels) and a HIDDEN part whose features are given as test_features.csv. Its
+labels are kept only in this object's memory, never on disk, so nothing the
+agent's code does -- e.g. target-encoding over the whole file before its own
+split -- can leak them. train.py writes predictions.csv for the hidden rows and
+the harness scores it. (Found the hard way: an agent target-encoded over all
+rows and "improved" readmission AUC from 0.60 to a fake 0.80.)
 """
 
 import json
@@ -16,7 +25,31 @@ import os
 import shutil
 import subprocess
 
+import numpy as np
+import pandas as pd
+from sklearn.metrics import accuracy_score, mean_squared_error, roc_auc_score
+from sklearn.model_selection import train_test_split
+
 RUN_TIMEOUT_SECONDS = 60
+HIDDEN_FRACTION = 0.2
+HIDDEN_SPLIT_SEED = 0
+DEV_FILE, FEATURES_FILE, PREDICTIONS_FILE = "dataset.csv", "test_features.csv", "predictions.csv"
+
+# metric name -> score(y_true, predictions)
+METRICS = {
+    "roc_auc": roc_auc_score,
+    "accuracy": lambda y, p: accuracy_score(y, np.asarray(p).round().astype(int)),
+    "rmse": lambda y, p: float(np.sqrt(mean_squared_error(y, p))),
+}
+
+
+def split_hidden(df: pd.DataFrame, target: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """The one dev/hidden split everybody uses (harness, reference baselines).
+    Stratified for classification targets so the hidden set keeps the class balance."""
+    y = df[target]
+    stratify = y if y.nunique() <= 20 else None
+    dev, hidden = train_test_split(df, test_size=HIDDEN_FRACTION, random_state=HIDDEN_SPLIT_SEED, stratify=stratify)
+    return dev.reset_index(drop=True), hidden.reset_index(drop=True)
 
 TOOL_SCHEMAS = [
     {
@@ -63,10 +96,10 @@ TOOL_SCHEMAS = [
         "function": {
             "name": "run_experiment",
             "description": (
-                "Run the current train.py as one experiment. Parses the METRIC line it prints and automatically "
-                "keeps the change (git commit) if it beats the best metric so far, or reverts it (git checkout) if "
-                "it doesn't or the script errors. This decision is NOT yours. Hard-capped per session -- calling it "
-                "after the budget is used returns a refusal."
+                "Run the current train.py as one experiment. The harness scores the predictions.csv it writes "
+                "against hidden labels and automatically keeps the change (git commit) if it beats the best score "
+                "so far, or reverts it (git checkout) if it doesn't or the script errors. This decision is NOT "
+                "yours. Hard-capped per session -- calling it after the budget is used returns a refusal."
             ),
             "parameters": {
                 "type": "object",
@@ -95,12 +128,21 @@ class Workspace:
         self.max_experiments = max_experiments
         self.state_path = os.path.join(self.root, "state.json")
         self.train_script = os.path.join(self.root, "train.py")
+        self.dev_path = os.path.join(self.root, DEV_FILE)
+        self._hidden_labels: np.ndarray | None = None  # memory only -- never written to disk
+        self._metric_fn = None
 
     def init(self, dataset_csv_path: str, target_column: str, metric_name: str, minimize: bool) -> None:
+        if metric_name not in METRICS:
+            raise ValueError(f"unsupported metric {metric_name!r}; supported: {sorted(METRICS)}")
         if os.path.exists(self.root):
             shutil.rmtree(self.root)
         os.makedirs(self.root)
-        shutil.copyfile(dataset_csv_path, os.path.join(self.root, "dataset.csv"))
+        dev, hidden = split_hidden(pd.read_csv(dataset_csv_path), target_column)
+        dev.to_csv(self.dev_path, index=False)
+        hidden.drop(columns=[target_column]).to_csv(os.path.join(self.root, FEATURES_FILE), index=False)
+        self._hidden_labels = hidden[target_column].to_numpy()
+        self._metric_fn = METRICS[metric_name]
         self._git("init")
         self._save_state(
             {
@@ -151,7 +193,7 @@ class Workspace:
             return f"Error reading {path}: {e}"
 
     def write_file(self, path: str, content: str) -> str:
-        if os.path.basename(path) in {"state.json", "dataset.csv"}:
+        if os.path.basename(path) in {"state.json", DEV_FILE, FEATURES_FILE}:
             return f"Refused: {path} is managed by the harness."
         try:
             with open(self._resolve(path), "w") as f:
@@ -168,17 +210,26 @@ class Workspace:
 
     # --- experiments ---------------------------------------------------
 
-    @staticmethod
-    def _parse_metric(stdout: str) -> float | None:
-        metric = None
-        for line in stdout.splitlines():
-            line = line.strip()
-            if line.startswith("METRIC:"):
-                try:
-                    metric = float(line.split("METRIC:", 1)[1].strip())
-                except ValueError:
-                    continue
-        return metric
+    def _score_predictions(self) -> tuple[float | None, str | None]:
+        """Score predictions.csv against the hidden labels. Returns (metric, error)."""
+        path = os.path.join(self.root, PREDICTIONS_FILE)
+        if not os.path.exists(path):
+            return None, f"train.py did not write {PREDICTIONS_FILE}"
+        try:
+            preds = pd.read_csv(path)
+        except Exception as e:
+            return None, f"could not read {PREDICTIONS_FILE}: {e}"
+        if "prediction" not in preds.columns:
+            return None, f"{PREDICTIONS_FILE} needs a 'prediction' column (found {list(preds.columns)})"
+        if len(preds) != len(self._hidden_labels):
+            return None, f"{PREDICTIONS_FILE} has {len(preds)} rows; {FEATURES_FILE} has {len(self._hidden_labels)}"
+        p = pd.to_numeric(preds["prediction"], errors="coerce")
+        if p.isna().any():
+            return None, f"{PREDICTIONS_FILE} has {int(p.isna().sum())} missing or non-numeric predictions"
+        try:
+            return float(self._metric_fn(self._hidden_labels, p.to_numpy())), None
+        except Exception as e:
+            return None, f"scoring failed: {e}"
 
     def _record(self, state: dict, iteration: int, description: str, metric: float | None, kept: bool, error: str | None = None) -> None:
         entry = {"iteration": iteration, "metric": metric, "kept": kept, "description": description}
@@ -203,6 +254,9 @@ class Workspace:
 
         with open(self.train_script) as f:
             code = f.read()
+        stale = os.path.join(self.root, PREDICTIONS_FILE)
+        if os.path.exists(stale):
+            os.remove(stale)  # never score a previous experiment's predictions
         result = self.executor.run(code, timeout=RUN_TIMEOUT_SECONDS)
 
         if result.timed_out:
@@ -210,9 +264,11 @@ class Workspace:
             self._record(state, iteration, description, None, False, "timed out")
             return f"Iteration {iteration}: TIMED OUT after {RUN_TIMEOUT_SECONDS}s. Change reverted."
 
-        metric = self._parse_metric(result.stdout) if result.exit_code == 0 else None
+        if result.exit_code != 0:
+            metric, error = None, result.stderr.strip()[-500:] or f"exit code {result.exit_code}"
+        else:
+            metric, error = self._score_predictions()
         if metric is None:
-            error = result.stderr.strip()[-500:] or "no METRIC line in output"
             self._git("checkout", "--", "train.py")
             self._record(state, iteration, description, None, False, error)
             return f"Iteration {iteration}: FAILED ({error}). Change reverted; train.py is back to the last kept version."

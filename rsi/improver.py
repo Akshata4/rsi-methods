@@ -13,7 +13,7 @@ That inheritance chain is what makes this recursive rather than just "someone
 tuned the prompt".
 
 What an improver may NOT change is HARNESS_CONTRACT below: the tool rules,
-the METRIC protocol, the fixed split and the budget. If an improver could edit
+the predictions protocol, the hidden-label scoring and the budget. If an improver could edit
 those, it could "improve" by changing how it's graded.
 """
 
@@ -28,13 +28,20 @@ Dataset preview:
 {preview}
 
 Harness rules (fixed -- these are not yours to change):
+- Your workspace has 'dataset.csv' (training data, including the target
+  column '{target_column}') and 'test_features.csv' (the same feature columns,
+  no target). The preview above is of dataset.csv.
 - No train.py exists yet. Write the first version yourself before calling
-  run_experiment. It must load 'dataset.csv' (already in your workspace),
-  predict the target column '{target_column}', and print exactly one line
-  "METRIC: <float>" as its last line of output -- that is your {metric_name}
-  ({direction}), computed on a held-out test split made with
-  train_test_split(test_size=0.2, random_state=42). Never compute the metric
-  on training rows.{metric_note}
+  run_experiment. It must train on dataset.csv and write 'predictions.csv'
+  with one column named 'prediction' and exactly one row per row of
+  test_features.csv, in the same order.{metric_note}
+- The harness scores predictions.csv against hidden labels for
+  test_features.csv: that {metric_name} ({direction}) is your score. You never
+  see those labels. Any validation split you make inside dataset.csv is for
+  your own judgment only; you may print it, but it is not your score.
+- Available Python libraries: numpy, pandas, scikit-learn (plus the standard
+  library). Nothing else is installed and nothing can be installed -- for
+  gradient boosting use sklearn's HistGradientBoostingClassifier/Regressor.
 - Use write_file to propose train.py (or your next change), then call
   run_experiment with a one-sentence description of what you changed.
 - run_experiment keeps your change if it beats the best {metric_name} so far
@@ -76,10 +83,10 @@ MAX_PROMPT_CHARS = 6000
 
 # How each metric must be computed, so every improver is scored the same way.
 METRIC_NOTES = {
-    "roc_auc": " Compute it as sklearn.metrics.roc_auc_score(y_test, p) where p is\n"
-               "  the predicted probability (or score) of the positive class, target == 1.",
-    "accuracy": " Compute it as sklearn.metrics.accuracy_score(y_test, y_pred).",
-    "rmse": " Compute it as the square root of sklearn.metrics.mean_squared_error.",
+    "roc_auc": " Each prediction must be the predicted probability (or a\n"
+               "  score) that target == 1; the score is ROC-AUC.",
+    "accuracy": " Each prediction must be the predicted class label; the score is accuracy.",
+    "rmse": " Each prediction must be the predicted value; the score is RMSE.",
 }
 
 
