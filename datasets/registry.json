@@ -1,0 +1,44 @@
+[
+  {
+    "name": "diabetes",
+    "path": "diabetes.csv",
+    "target": "target",
+    "metric": "rmse",
+    "minimize": true
+  },
+  {
+    "name": "friedman",
+    "path": "friedman.csv",
+    "target": "target",
+    "metric": "rmse",
+    "minimize": true
+  },
+  {
+    "name": "noisy_clf",
+    "path": "noisy_clf.csv",
+    "target": "target",
+    "metric": "accuracy",
+    "minimize": false
+  },
+  {
+    "name": "hard_clf",
+    "path": "hard_clf.csv",
+    "target": "target",
+    "metric": "accuracy",
+    "minimize": false
+  },
+  {
+    "name": "friedman3",
+    "path": "friedman3.csv",
+    "target": "target",
+    "metric": "rmse",
+    "minimize": true
+  },
+  {
+    "name": "imbalanced_clf",
+    "path": "imbalanced_clf.csv",
+    "target": "target",
+    "metric": "accuracy",
+    "minimize": false
+  }
+]
