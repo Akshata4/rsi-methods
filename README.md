@@ -140,7 +140,8 @@ fails before patching it again.
 - **Anomaly detection** (harness-side, `rsi/sorsi/detector.py`) after every experiment:
   - *recurrence*: the same error signature again, or the same kind of change
     reverted twice in a row
-  - *opposing edits*: an edit undoes lines a recent edit added or removed
+  - *opposing edits*: an edit brings back lines a recent edit removed (A -> B -> A);
+    merely re-tuning a recently added line is not flagged
   - *expectation mismatch*: "improve" expected, but it crashed or the score
     fell by more than 1%
 - **Diagnose before patching:** when an anomaly fires, `run_experiment` is

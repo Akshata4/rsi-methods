@@ -5,8 +5,9 @@ switch it off, and an anomaly is a fact about the trace, not the agent's opinion
 
     recurrence   the same error comes back, or the same kind of change is
                  reverted twice in a row ("patching the symptom again")
-    opposing     an edit undoes lines that a recent edit added or removed
-                 (flip-flopping between two solutions)
+    opposing     an edit brings back lines that a recent edit removed
+                 (flip-flopping: A -> B, then B -> A). Merely modifying a line a
+                 recent edit added (e.g. tuning 100 -> 200) is NOT opposing.
     mismatch     the agent predicted an improvement (or no change) and the
                  script crashed or the score clearly moved the other way
 """
@@ -103,12 +104,14 @@ def detect(steps: list[Step], minimize: bool) -> list[Anomaly]:
                              + ") was tried twice in a row and reverted both times",
                              [past[-1].iteration, cur.iteration]))
 
-    # Opposing: this edit undoes something a recent edit did.
+    # Opposing: this edit restores lines that a recent edit removed -- a real reversal.
+    # (cur.removed & prev.added alone is just editing a recently added line; the
+    # first real run flagged plain hyperparameter tuning that way.)
     for prev in past[-OPPOSING_WINDOW:]:
-        undone = (cur.added & prev.removed) | (cur.removed & prev.added)
-        if undone and (cur.added or cur.removed):
-            example = sorted(undone, key=len)[0][:100]
-            found.append(Anomaly("opposing", f"this edit undoes part of experiment {prev.iteration} "
+        restored = cur.added & prev.removed
+        if restored:
+            example = sorted(restored, key=len)[0][:100]
+            found.append(Anomaly("opposing", f"this edit brings back what experiment {prev.iteration} removed "
                                  f"(e.g. `{example}`)", [prev.iteration, cur.iteration]))
             break
 
