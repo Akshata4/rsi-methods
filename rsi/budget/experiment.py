@@ -29,6 +29,7 @@ from rsi.budget.features import FEATURE_NAMES
 from rsi.budget.scorer import CLIP, EditScorer
 from rsi.budget.workspace import CandidateWorkspace
 from rsi.evaluate import summarize
+from rsi.generations import _provenance
 from rsi.improver import Improver
 from rsi.run_task import DatasetSpec, RunResult, run_improver_on_dataset
 
@@ -290,6 +291,9 @@ def run(out: str, collect_sets: list[DatasetSpec], test: list[DatasetSpec], k: i
            "collect_specs": [asdict(d) for d in collect_sets], "test_specs": [asdict(d) for d in test]}
     with open(os.path.join(out, "config.json"), "w") as f:
         json.dump(cfg, f, indent=2)
+    if not os.path.exists(os.path.join(out, "provenance.json")):  # keep the original on resume
+        with open(os.path.join(out, "provenance.json"), "w") as f:
+            json.dump(_provenance(), f, indent=2)
 
     rows = collect(out, collect_sets, collect_repeats, rounds, k) if "collect" in phases else \
         load_labels(os.path.join(out, "collect"))

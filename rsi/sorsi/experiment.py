@@ -18,6 +18,7 @@ from dataclasses import asdict
 import numpy as np
 
 from rsi.evaluate import summarize
+from rsi.generations import _provenance
 from rsi.improver import Improver
 from rsi.run_task import DatasetSpec, RunResult, run_improver_on_dataset
 from rsi.sorsi.detector import error_signature
@@ -201,6 +202,9 @@ def run(out: str, build_sets: list[DatasetSpec], test_sets: list[DatasetSpec], b
            "test_specs": [asdict(d) for d in test_sets], "max_probes": MAX_PROBES}
     with open(os.path.join(out, "config.json"), "w") as f:
         json.dump(cfg, f, indent=2)
+    if not os.path.exists(os.path.join(out, "provenance.json")):  # keep the original on resume
+        with open(os.path.join(out, "provenance.json"), "w") as f:
+            json.dump(_provenance(), f, indent=2)
     build_rows = build(out, build_sets, rounds, budget) if "build" in phases else None
     summary = stats = lessons = None
     if "test" in phases:
