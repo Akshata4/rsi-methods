@@ -61,7 +61,7 @@ def _blind_rewrite(seed: Improver, n_rewrites: int, eval_dir: str) -> Improver:
     for i in range(1, n_rewrites + 1):
         current = propose_child(current, evidence=[], child_id=f"blind-{i}")
     blind = Improver(current.research_prompt, current.meta_prompt, generation=n_rewrites,
-                     parent_id=seed.id, rationale=current.rationale, id="blind-rewrite")
+                     parent_id=seed.id, rationale=current.rationale, id="blind-rewrite", workflow=current.workflow)
     blind.save(os.path.dirname(path))
     return blind
 
@@ -219,7 +219,9 @@ def write_summary(path: str, summary: dict, datasets: list[DatasetSpec], repeats
 # --- main ---------------------------------------------------------------------------
 
 def evaluate(run_dir: str, test: list[DatasetSpec], repeats: int = 3, budget: int | None = None,
-             baselines: bool = True) -> dict:
+             baselines: bool = True, extra: list[tuple[str, Improver]] | None = None) -> dict:
+    """`extra` adds named contenders at the same budget (e.g. plain Tumble and
+    the fixed-order ablation when evaluating an RSIFlow run)."""
     with open(os.path.join(run_dir, "config.json")) as f:
         cfg = json.load(f)
     budget = budget or cfg["budget"]
@@ -235,6 +237,9 @@ def evaluate(run_dir: str, test: list[DatasetSpec], repeats: int = 3, budget: in
         seed = champions[0]
         contenders.append(("gen0-2x-budget", seed, 2 * budget))
         contenders.append(("blind-rewrite", _blind_rewrite(seed, max(1, len(champions) - 1), eval_dir), budget))
+    for name, improver in extra or []:
+        improver.save(os.path.join(eval_dir, "improvers"))
+        contenders.append((name, improver, budget))
 
     runs: dict[str, dict[str, list[RunResult]]] = {}
     for name, improver, b in contenders:

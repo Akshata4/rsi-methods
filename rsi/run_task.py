@@ -78,7 +78,16 @@ def run_improver_on_dataset(
     the matching instructions in the fixed harness contract."""
     workspace_dir = os.path.join(out_dir, "workspace")
     executor = LocalExecutor(workspace_dir)
-    if make_workspace is None:
+    if make_workspace is None and improver.workflow is not None:  # RSIFlow improver
+        from rsi.flow.workspace import FlowWorkspace, flow_protocol_vars
+        os.makedirs(out_dir, exist_ok=True)
+        flow_log = os.path.join(out_dir, "flow.jsonl")
+        if os.path.exists(flow_log):
+            os.remove(flow_log)  # from an interrupted earlier attempt
+        workspace = FlowWorkspace(workspace_dir, executor, budget, improver.workflow, session_dir=out_dir,
+                                  context={"improver": improver.id, "dataset": dataset.name})
+        protocol, protocol_vars = "flow", flow_protocol_vars(improver.workflow, workspace.first_directive())
+    elif make_workspace is None:
         workspace = Workspace(workspace_dir, executor, max_experiments=budget)
     else:
         workspace = make_workspace(workspace_dir, executor, budget)
@@ -98,7 +107,7 @@ def run_improver_on_dataset(
     try:
         # tool calls per experiment: write + run (+ reads); candidates: k writes + submit;
         # sorsi: + probes and a diagnosis when an anomaly fires
-        turns_per_experiment = {"single": 4, "candidates": k + 3, "sorsi": 7}.get(protocol, 4)
+        turns_per_experiment = {"single": 4, "candidates": k + 3, "sorsi": 7, "flow": 4}.get(protocol, 4)
         status = run_agent(prompt, system_prompt, workspace.tool_schemas(), workspace.tool_functions(), trajectory,
                            max_turns=turns_per_experiment * budget + 10, usage=usage)
     except Exception as e:  # an API failure loses this run, not the whole generation

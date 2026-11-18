@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from rsi.evaluate import evaluate  # noqa: E402
+from rsi.flow.workflow import SEED_WORKFLOW, static_variant  # noqa: E402
 from rsi.generations import GenerationConfig, run_generations  # noqa: E402
 from rsi.improver import Improver  # noqa: E402
 from rsi.run_task import load_datasets, registry_split  # noqa: E402
@@ -32,6 +33,8 @@ def main() -> None:
     p.add_argument("--patience", type=int, default=2)
     p.add_argument("--min-gain", type=float, default=0.01)
     p.add_argument("--seed-improver", help="path to an improver JSON to start from (default: Tumble's prompt)")
+    p.add_argument("--method", choices=["prompt", "flow"], default="prompt",
+                   help="prompt: evolve the research prompt; flow: RSIFlow, evolve the workflow")
     args = p.parse_args()
 
     registry = load_datasets(args.registry)
@@ -59,10 +62,22 @@ def main() -> None:
         min_gain=args.min_gain,
         test=[registry[n] for n in args.test],
     )
-    seed = Improver.load(args.seed_improver) if args.seed_improver else None
+    if args.seed_improver:
+        seed = Improver.load(args.seed_improver)
+    else:
+        seed = Improver.seed_flow() if args.method == "flow" else None
     run_dir = run_generations(cfg, seed)
     if cfg.test:
-        evaluate(run_dir, cfg.test, repeats=args.repeats)
+        extra = None
+        if args.method == "flow":  # RSIFlow: also compare against plain Tumble and fixed-order routing
+            plain = Improver.seed()
+            plain.id = "plain-tumble"
+            extra = [("plain-tumble", plain),
+                     ("flow-static", Improver.seed_flow(static_variant(SEED_WORKFLOW), id="flow-static"))]
+        evaluate(run_dir, cfg.test, repeats=args.repeats, extra=extra)
+        if args.method == "flow":
+            from rsi.flow.report import write_flow_report
+            print(f"[flow] {write_flow_report(run_dir)}")
     else:
         print(f"\nNo --test datasets given. Evaluate later with:\n"
               f"  uv run python -m rsi.evaluate {run_dir} --test <datasets> --repeats {args.repeats}")

@@ -68,6 +68,7 @@ rsi/plots.py        generations.png and best_so_far.png
 rsi/budget/         Budget RSI: edit features, scorer, candidate workspace, experiment
 run_budget_rsi.py   Budget RSI entry point
 rsi/sorsi/          SO-RSI: anomaly detector, inquiry memory, diagnosing workspace, experiment
+rsi/flow/           RSIFlow: workflow schema, router, flow workspace, flow report
 run_so_rsi.py       SO-RSI entry point
 run_rsi.py          CLI entry point
 scripts/make_datasets.py   downloads the clinical datasets, writes datasets/registry.json
@@ -167,6 +168,38 @@ have forced a diagnosis instead of three more blind patches.
 ```bash
 uv run python run_so_rsi.py                       # build -> test
 uv run python run_so_rsi.py --out runs/sorsi-<ts> # resume
+```
+
+## Method 3: RSIFlow
+
+Based on *RSIFlow: Adaptive Self-Improvement Workflows with an Evolving
+Meta-Agent* (arXiv 2610.21791; course labs 10.12-10.14). Instead of rewriting
+one prompt, the improver is a **workflow**: stages with short instructions,
+an order, and routing rules (`rsi/flow/workflow.py`). Seed stages: baseline,
+fix_errors, preprocess, model, features, tune, ensemble.
+
+- **Adaptive orchestration** (`rsi/flow/router.py`, harness-side and
+  deterministic): every experiment is assigned a stage from the results so
+  far -- a crash goes to fix_errors (then the interrupted stage resumes), a
+  stage that just improved continues, a stage with no gain for
+  `plateau_patience` experiments has stalled and the next one in `order`
+  takes over, and when everything has stalled the most productive stage
+  returns. Each `run_experiment` result ends with `NEXT STAGE -> ...`.
+- **Execution feedback** (`rsi/flow/workspace.py`): each experiment is logged
+  with its stage, relative gain, and whether the edit actually matched the
+  stage (same static edit features as Budget RSI).
+- **Evolving meta-agent:** the generation loop's children are rewritten
+  workflows (instructions, stages, order, thresholds), written from the
+  per-stage statistics, validated against a schema, and accepted only if they
+  beat their parent on held-out datasets.
+
+The final evaluation adds two contenders: **plain Tumble** (no workflow) and
+**flow-static**, the seed workflow with fixed-order routing -- the ablation
+that isolates what adaptive routing adds. `flow_report.md` shows per-stage
+statistics, routing decisions, and how the workflow evolved.
+
+```bash
+uv run python run_rsi.py --method flow --budget 6 --generations 2 --repeats 2
 ```
 
 ## How we know whether it improved

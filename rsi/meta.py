@@ -16,6 +16,33 @@ from tumble_core.llm_client import get_client_and_model
 MAX_ATTEMPTS = 3
 
 
+def stage_statistics(results: list[RunResult]) -> str:
+    """RSIFlow execution feedback: per-stage outcomes across all runs."""
+    stats: dict[str, dict] = {}
+    for r in results:
+        for e in r.history:
+            if "stage" not in e:
+                continue
+            s = stats.setdefault(e["stage"], {"attempts": 0, "kept": 0, "crashes": 0, "gains": [], "on": 0, "on_n": 0})
+            s["attempts"] += 1
+            s["kept"] += bool(e["kept"])
+            s["crashes"] += e["metric"] is None
+            if e.get("gain") is not None:
+                s["gains"].append(e["gain"])
+            if e.get("on_stage") is not None:
+                s["on_n"] += 1
+                s["on"] += bool(e["on_stage"])
+    if not stats:
+        return ""
+    lines = ["## Per-stage statistics (all runs above)",
+             "| stage | attempts | kept | crashes | mean relative gain | edits matching the stage |", "|---|---|---|---|---|---|"]
+    for name, s in stats.items():
+        gain = f"{sum(s['gains']) / len(s['gains']):+.2%}" if s["gains"] else "n/a"
+        match = f"{s['on']}/{s['on_n']}" if s["on_n"] else "n/a"
+        lines.append(f"| {name} | {s['attempts']} | {s['kept']} | {s['crashes']} | {gain} | {match} |")
+    return "\n".join(lines)
+
+
 def summarize_evidence(results: list[RunResult]) -> str:
     if not results:
         return "(no evidence provided -- rely on general ML research knowledge)"
@@ -26,11 +53,13 @@ def summarize_evidence(results: list[RunResult]) -> str:
                  f"Final best: {r.best_metric}  |  experiments used: {r.experiments_used}  |  status: {r.status}"]
         for e in r.history:
             m = e["metric"] if e["metric"] is not None else f"FAILED: {e.get('error', '')[:150]}"
-            lines.append(f"- iter {e['iteration']}: {m} ({'kept' if e['kept'] else 'reverted'}) -- {e['description']}")
+            stage = f"[{e['stage']}] " if "stage" in e else ""
+            lines.append(f"- iter {e['iteration']}: {stage}{m} ({'kept' if e['kept'] else 'reverted'}) -- {e['description']}")
         if r.report:
             lines.append(f"Agent's own report (truncated):\n{r.report[:1200]}")
         blocks.append("\n".join(lines))
-    return "\n\n".join(blocks)
+    stage_table = stage_statistics(results)
+    return "\n\n".join(blocks + ([stage_table] if stage_table else []))
 
 
 def _extract_json(text: str) -> dict | None:
@@ -49,7 +78,9 @@ def propose_child(
     """Ask the parent (via its own meta_prompt) to write the next improver.
     Raises RuntimeError if no valid child is produced after a few attempts."""
     client, model = get_client_and_model()
+    workflow_block = f"# Current workflow\n{json.dumps(parent.workflow, indent=2)}\n\n" if parent.workflow else ""
     user = (
+        workflow_block +
         f"# Current research instructions\n{parent.research_prompt}\n\n"
         f"# Current meta-instructions\n{parent.meta_prompt}\n\n"
         f"# Evidence from runs with the current instructions\n{summarize_evidence(evidence)}"
@@ -72,7 +103,9 @@ def propose_child(
             last_problem = "reply was not a JSON object"
         else:
             child = Improver(
-                research_prompt=str(data.get("research_prompt", "")),
+                # A workflow improver evolves its workflow; its research prompt is inherited unless rewritten.
+                research_prompt=str(data.get("research_prompt") or (parent.research_prompt if parent.workflow else "")),
+                workflow=data.get("workflow") if parent.workflow is not None else None,
                 # If the parent chose not to touch its meta_prompt, inherit it.
                 meta_prompt=str(data.get("meta_prompt") or parent.meta_prompt),
                 generation=parent.generation + 1,

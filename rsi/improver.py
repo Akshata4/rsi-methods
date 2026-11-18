@@ -87,6 +87,20 @@ PROTOCOLS = {
 - Before diagnosing you may call run_probe with a short Python script to
   investigate (it runs in your workspace, prints its output; at most {probes}
   probes per session). Probes do not use your experiment budget.{lessons}""",
+    "flow": """\
+- Use write_file to propose train.py (or your next change), then call
+  run_experiment with a one-sentence description of what you changed.
+- run_experiment keeps your change if it beats the best {metric_name} so far
+  and reverts it otherwise (or on error). The harness decides, not you.
+- You work through a research workflow of stages. An orchestrator assigns the
+  stage of every experiment from your results so far (for example a crash
+  routes you to {fix_stage}; a stage that stops improving is set aside for
+  another). Make each experiment the kind of change its stage asks for --
+  whether it was is recorded. Every run_experiment result ends with
+  "NEXT STAGE -> ..." naming the stage of your next experiment.
+- Workflow stages:
+{stages}
+- Your first stage is {first_stage}""",
 }
 
 # Generation 0 = Tumble's original instructions, unchanged in spirit.
@@ -116,6 +130,36 @@ Reply with ONLY a JSON object:
 
 MAX_PROMPT_CHARS = 6000
 
+# RSIFlow: the meta-agent rewrites the WORKFLOW (stages, order, routing rules).
+SEED_FLOW_META_PROMPT = """\
+You improve the research WORKFLOW of an autonomous ML research agent. An
+orchestrator routes each experiment to a stage of this workflow (crash ->
+fix_errors; a stage that stops improving is set aside; an improving stage is
+continued); each stage has a short instruction the agent follows.
+
+You will receive (1) the current workflow as JSON, (2) these meta-instructions,
+and (3) evidence: per-stage statistics (attempts, kept, crashes, mean gain,
+whether edits matched their stage) and every experiment's stage and outcome
+from runs with the current workflow.
+
+Find the bottlenecks: stages that waste experiments, crash, or never help;
+stages that help and deserve more budget; instructions the agent ignores or
+misreads; routing thresholds that move on too early or too late. Then write
+an improved workflow that would reach a better final score within the same
+experiment budget on NEW, unseen datasets -- general strategy, not facts
+about these datasets.
+
+Rules for the workflow JSON: "stages" maps stage name -> instruction (20-600
+characters); stages "baseline" and "fix_errors" must exist and must NOT be in
+"order"; "order" lists the other stages in the order to try them; "rules" has
+adaptive (true/false), stay_on_gain (true/false), max_fix_attempts (1-4),
+plateau_patience (1-4) and min_gain (0-0.05). You may add, remove, rename,
+merge or reorder the optional stages. You may also rewrite these
+meta-instructions; future generations will use your version.
+
+Reply with ONLY a JSON object:
+{"workflow": {...}, "meta_prompt": "...", "rationale": "what you changed and why, citing the evidence"}"""
+
 # How each metric must be computed, so every improver is scored the same way.
 METRIC_NOTES = {
     "roc_auc": " Each prediction must be the predicted probability (or a\n"
@@ -133,10 +177,20 @@ class Improver:
     parent_id: str | None = None
     rationale: str = ""
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
+    workflow: dict | None = None  # RSIFlow: set for workflow improvers (see rsi/flow/workflow.py)
 
     @classmethod
     def seed(cls) -> "Improver":
         return cls(SEED_RESEARCH_PROMPT, SEED_META_PROMPT, generation=0, rationale="seed: Tumble's original prompt", id="gen000-seed")
+
+    @classmethod
+    def seed_flow(cls, workflow: dict | None = None, id: str = "gen000-flow-seed") -> "Improver":
+        """RSIFlow generation 0: Tumble's research prompt plus the seed workflow."""
+        from rsi.flow.workflow import SEED_WORKFLOW
+        import copy
+        return cls(SEED_RESEARCH_PROMPT, SEED_FLOW_META_PROMPT, generation=0, id=id,
+                   rationale="seed: Tumble's prompt + the seed RSIFlow workflow",
+                   workflow=copy.deepcopy(workflow or SEED_WORKFLOW))
 
     def system_prompt(self, preview: str, target_column: str, metric_name: str, minimize: bool, round_budget: int,
                       protocol: str = "single", k: int = 3, protocol_vars: dict | None = None) -> str:
@@ -159,6 +213,9 @@ class Improver:
                 problems.append(f"{name} is missing or too short")
             elif len(text) > MAX_PROMPT_CHARS:
                 problems.append(f"{name} is longer than {MAX_PROMPT_CHARS} chars")
+        if self.workflow is not None:
+            from rsi.flow.workflow import validate_workflow
+            problems += [f"workflow: {p}" for p in validate_workflow(self.workflow)]
         return problems
 
     def save(self, directory: str) -> str:
