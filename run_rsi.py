@@ -18,6 +18,7 @@ from rsi.flow.workflow import SEED_WORKFLOW, static_variant  # noqa: E402
 from rsi.generations import GenerationConfig, run_generations  # noqa: E402
 from rsi.improver import Improver  # noqa: E402
 from rsi.run_task import load_datasets, registry_split  # noqa: E402
+from tumble_core.workspace import SCORING  # noqa: E402
 
 
 def main() -> None:
@@ -33,9 +34,14 @@ def main() -> None:
     p.add_argument("--patience", type=int, default=2)
     p.add_argument("--min-gain", type=float, default=0.01)
     p.add_argument("--seed-improver", help="path to an improver JSON to start from (default: Tumble's prompt)")
+    p.add_argument("--folds", type=int, default=SCORING["folds"],
+                   help="hidden folds per score (version 2 default 5; --folds 1 --keep-t 0 = version 1)")
+    p.add_argument("--keep-t", type=float, default=SCORING["keep_t"],
+                   help="paired-t threshold for keeping a change (0 = keep any improvement)")
     p.add_argument("--method", choices=["prompt", "flow"], default="prompt",
                    help="prompt: evolve the research prompt; flow: RSIFlow, evolve the workflow")
     args = p.parse_args()
+    SCORING.update(folds=args.folds, keep_t=args.keep_t)
 
     registry = load_datasets(args.registry)
     args.train = args.train or registry_split(registry, "train")

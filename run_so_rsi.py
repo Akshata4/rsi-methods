@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from rsi.run_task import load_datasets, registry_split  # noqa: E402
+from tumble_core.workspace import SCORING  # noqa: E402
 from rsi.sorsi.experiment import run  # noqa: E402
 
 
@@ -24,12 +25,17 @@ def main() -> None:
     p.add_argument("--registry", default="datasets/registry.json")
     p.add_argument("--out", help="run directory (default: runs/sorsi-<timestamp>); reuse one to resume")
     p.add_argument("--phases", nargs="+", default=["build", "test"], choices=["build", "test"])
+    p.add_argument("--folds", type=int, default=SCORING["folds"],
+                   help="hidden folds per score (version 2 default 5; --folds 1 --keep-t 0 = version 1)")
+    p.add_argument("--keep-t", type=float, default=SCORING["keep_t"],
+                   help="paired-t threshold for keeping a change (0 = keep any improvement)")
     p.add_argument("--budget", type=int, default=6, help="experiments per session")
     p.add_argument("--rounds", type=int, default=2, help="memory-building rounds over the build datasets")
     p.add_argument("--repeats", type=int, default=2, help="repeats per contender and test dataset")
     p.add_argument("--build", nargs="+", help="datasets for memory building (default: train + held-out)")
     p.add_argument("--test", nargs="+", help="datasets for the comparison (default: test split)")
     args = p.parse_args()
+    SCORING.update(folds=args.folds, keep_t=args.keep_t)
 
     registry = load_datasets(args.registry)
     build_names = args.build or registry_split(registry, "train") + registry_split(registry, "heldout")

@@ -26,6 +26,7 @@ from rsi.compare import Comparison, compare
 from rsi.improver import Improver
 from rsi.meta import propose_child
 from rsi.run_task import DatasetSpec, RunResult, run_improver_on_dataset
+from tumble_core.workspace import SCORING
 
 
 @dataclass
@@ -73,6 +74,7 @@ def _provenance() -> dict:
         "llm_provider": os.environ.get("LLM_PROVIDER", "wandb"),
         "llm_model": model or "(provider default)",
         "started_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "scoring": dict(SCORING),  # measurement version: folds=1, keep_t=0 is version 1
     }
 
 

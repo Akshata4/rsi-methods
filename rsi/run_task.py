@@ -95,7 +95,8 @@ def run_improver_on_dataset(
 
     preview = build_preview(workspace.dev_path, dataset.target)  # the agent's view: dev rows only
     system_prompt = improver.system_prompt(preview, dataset.target, dataset.metric, dataset.minimize, budget,
-                                           protocol=protocol, k=k, protocol_vars=protocol_vars)
+                                           protocol=protocol, k=k, protocol_vars=protocol_vars,
+                                           scoring={"folds": workspace.folds, "keep_t": workspace.keep_t})
     prompt = f"Improve {dataset.metric} as much as you can within your budget of {budget} experiments, then write your final report."
 
     trajectory = Trajectory(os.path.join(out_dir, "trajectory.jsonl"))

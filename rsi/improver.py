@@ -35,10 +35,7 @@ Harness rules (fixed -- these are not yours to change):
   run_experiment. It must train on dataset.csv and write 'predictions.csv'
   with one column named 'prediction' and exactly one row per row of
   test_features.csv, in the same order.{metric_note}
-- The harness scores predictions.csv against hidden labels for
-  test_features.csv: that {metric_name} ({direction}) is your score. You never
-  see those labels. Any validation split you make inside dataset.csv is for
-  your own judgment only; you may print it, but it is not your score.
+{scoring_rules}
 - Available Python libraries: numpy, pandas, scikit-learn (plus the standard
   library). Nothing else is installed and nothing can be installed -- for
   gradient boosting use sklearn's HistGradientBoostingClassifier/Regressor.
@@ -50,6 +47,24 @@ Harness rules (fixed -- these are not yours to change):
   you tried, what worked, and your final best {metric_name}, then stop by
   replying with plain text and no tool calls.
 """
+
+# How the harness scores. Version 1 = one hidden split (folds=1); its text is kept
+# byte-identical so version-1 runs stay reproducible.
+SCORING_RULES_V1 = """\
+- The harness scores predictions.csv against hidden labels for
+  test_features.csv: that {metric_name} ({direction}) is your score. You never
+  see those labels. Any validation split you make inside dataset.csv is for
+  your own judgment only; you may print it, but it is not your score."""
+SCORING_RULES_V2 = """\
+- To score train.py the harness runs it {folds} times, each in a fresh
+  directory whose dataset.csv and test_features.csv hold a different split of
+  the data (the files in your workspace are the first split). Read them by
+  relative path only; scripts that reference other paths are refused. Your
+  score is the mean {metric_name} ({direction}) of predictions.csv against
+  the hidden labels over the {folds} splits; you never see those labels. Any
+  validation split you make inside dataset.csv is for your own judgment only.
+- A change counts as better only if it beats the best consistently across
+  the {folds} splits (paired t >= {keep_t}), not just on average by a hair."""
 
 # How experiments are proposed. "single" is plain Tumble; "candidates" is the
 # Budget RSI protocol: several candidate edits per round, the harness picks one.
@@ -193,8 +208,14 @@ class Improver:
                    workflow=copy.deepcopy(workflow or SEED_WORKFLOW))
 
     def system_prompt(self, preview: str, target_column: str, metric_name: str, minimize: bool, round_budget: int,
-                      protocol: str = "single", k: int = 3, protocol_vars: dict | None = None) -> str:
+                      protocol: str = "single", k: int = 3, protocol_vars: dict | None = None,
+                      scoring: dict | None = None) -> str:
+        direction = "lower is better" if minimize else "higher is better"
+        scoring = scoring or {"folds": 1, "keep_t": 0}
+        rules = SCORING_RULES_V1 if scoring["folds"] <= 1 else SCORING_RULES_V2
         contract = HARNESS_CONTRACT.format(
+            scoring_rules=rules.format(metric_name=metric_name, direction=direction, folds=scoring["folds"],
+                                       keep_t=scoring["keep_t"]),
             protocol=PROTOCOLS[protocol].format(metric_name=metric_name, k=k, **(protocol_vars or {})),
             preview=preview,
             target_column=target_column,

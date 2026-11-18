@@ -21,19 +21,36 @@ rows and "improved" readmission AUC from 0.60 to a fake 0.80.)
 """
 
 import json
+import math
 import os
+import re
 import shutil
 import subprocess
+import tempfile
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, mean_squared_error, roc_auc_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
+
+from tumble_core.executor import LocalExecutor
 
 RUN_TIMEOUT_SECONDS = 60
 HIDDEN_FRACTION = 0.2
 HIDDEN_SPLIT_SEED = 0
 DEV_FILE, FEATURES_FILE, PREDICTIONS_FILE = "dataset.csv", "test_features.csv", "predictions.csv"
+
+# Measurement settings (version 2). folds=1, keep_t=0 reproduces version 1 exactly:
+# one fixed 80/20 hidden split and "keep anything that is better by any amount".
+#   folds   train.py is scored on this many hidden folds; the score is their mean
+#   keep_t  a change is kept only if its paired per-fold improvement over the
+#           current best has t >= keep_t (same folds, so fold-to-fold noise cancels)
+SCORING = {"folds": 5, "keep_t": 1.0}
+
+# Scripts must read their inputs by relative path. Without a sandbox, the
+# source CSVs (with every label) are on disk in the repo, so a script that
+# reaches outside its run directory is refused rather than trusted.
+_OUTSIDE_PATH = re.compile(r"""['"](?:/|~|[A-Za-z]:\\)|\.\.[/\\]""")
 
 # metric name -> score(y_true, predictions)
 METRICS = {
@@ -50,6 +67,31 @@ def split_hidden(df: pd.DataFrame, target: str) -> tuple[pd.DataFrame, pd.DataFr
     stratify = y if y.nunique() <= 20 else None
     dev, hidden = train_test_split(df, test_size=HIDDEN_FRACTION, random_state=HIDDEN_SPLIT_SEED, stratify=stratify)
     return dev.reset_index(drop=True), hidden.reset_index(drop=True)
+
+
+def fold_splits(df: pd.DataFrame, target: str, folds: int) -> list[tuple[pd.DataFrame, pd.DataFrame]]:
+    """(dev, hidden) pairs: the single split for folds=1, else k-fold (stratified for classification)."""
+    if folds <= 1:
+        return [split_hidden(df, target)]
+    y = df[target]
+    if y.nunique() <= 20:
+        splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=HIDDEN_SPLIT_SEED).split(df, y)
+    else:
+        splitter = KFold(n_splits=folds, shuffle=True, random_state=HIDDEN_SPLIT_SEED).split(df)
+    return [(df.iloc[a].reset_index(drop=True), df.iloc[b].reset_index(drop=True)) for a, b in splitter]
+
+
+def paired_t(new: list[float], best: list[float], minimize: bool) -> float | None:
+    """t statistic of the per-fold improvement of `new` over `best` (same folds). + = better."""
+    if not new or not best or len(new) != len(best) or len(new) < 2:
+        return None
+    d = np.array(new) - np.array(best)
+    if minimize:
+        d = -d
+    sd = d.std(ddof=1)
+    if sd == 0:
+        return math.inf if d.mean() > 0 else (-math.inf if d.mean() < 0 else 0.0)
+    return float(d.mean() / (sd / math.sqrt(len(d))))
 
 TOOL_SCHEMAS = [
     {
@@ -122,10 +164,15 @@ TOOL_SCHEMAS = [
 
 
 class Workspace:
-    def __init__(self, root: str, executor, max_experiments: int):
+    def __init__(self, root: str, executor, max_experiments: int, folds: int | None = None,
+                 keep_t: float | None = None):
         self.root = os.path.abspath(root)
         self.executor = executor
         self.max_experiments = max_experiments
+        self.folds = SCORING["folds"] if folds is None else folds
+        self.keep_t = SCORING["keep_t"] if keep_t is None else keep_t
+        self._folds: list[tuple[pd.DataFrame, np.ndarray]] = []  # (dev rows, hidden labels) -- memory only
+        self.last_fold_scores: list[float] | None = None
         self.state_path = os.path.join(self.root, "state.json")
         self.train_script = os.path.join(self.root, "train.py")
         self.dev_path = os.path.join(self.root, DEV_FILE)
@@ -138,7 +185,11 @@ class Workspace:
         if os.path.exists(self.root):
             shutil.rmtree(self.root)
         os.makedirs(self.root)
-        dev, hidden = split_hidden(pd.read_csv(dataset_csv_path), target_column)
+        splits = fold_splits(pd.read_csv(dataset_csv_path), target_column, self.folds)
+        self._folds = [(dev, hidden) for dev, hidden in splits]
+        self._target = target_column
+        # The workspace holds the first split, for the agent to inspect and probe.
+        dev, hidden = splits[0]
         dev.to_csv(self.dev_path, index=False)
         hidden.drop(columns=[target_column]).to_csv(os.path.join(self.root, FEATURES_FILE), index=False)
         self._hidden_labels = hidden[target_column].to_numpy()
@@ -153,6 +204,8 @@ class Workspace:
                 "target_column": target_column,
                 "history": [],
                 "executions": 0,  # train.py runs actually executed (Budget RSI can run fewer than it considers)
+                "best_fold_scores": None,
+                "scoring": {"folds": self.folds, "keep_t": self.keep_t},
             }
         )
 
@@ -215,8 +268,11 @@ class Workspace:
     # --- experiments ---------------------------------------------------
 
     def _score_predictions(self) -> tuple[float | None, str | None]:
-        """Score predictions.csv against the hidden labels. Returns (metric, error)."""
-        path = os.path.join(self.root, PREDICTIONS_FILE)
+        """Score the workspace's predictions.csv against the first split's hidden labels."""
+        return self._score_file(os.path.join(self.root, PREDICTIONS_FILE), self._hidden_labels)
+
+    def _score_file(self, path: str, labels: np.ndarray) -> tuple[float | None, str | None]:
+        """Score a predictions.csv against hidden labels. Returns (metric, error)."""
         if not os.path.exists(path):
             return None, f"train.py did not write {PREDICTIONS_FILE}"
         try:
@@ -225,13 +281,13 @@ class Workspace:
             return None, f"could not read {PREDICTIONS_FILE}: {e}"
         if "prediction" not in preds.columns:
             return None, f"{PREDICTIONS_FILE} needs a 'prediction' column (found {list(preds.columns)})"
-        if len(preds) != len(self._hidden_labels):
-            return None, f"{PREDICTIONS_FILE} has {len(preds)} rows; {FEATURES_FILE} has {len(self._hidden_labels)}"
+        if len(preds) != len(labels):
+            return None, f"{PREDICTIONS_FILE} has {len(preds)} rows; {FEATURES_FILE} has {len(labels)}"
         p = pd.to_numeric(preds["prediction"], errors="coerce")
         if p.isna().any():
             return None, f"{PREDICTIONS_FILE} has {int(p.isna().sum())} missing or non-numeric predictions"
         try:
-            return float(self._metric_fn(self._hidden_labels, p.to_numpy())), None
+            return float(self._metric_fn(labels, p.to_numpy())), None
         except Exception as e:
             return None, f"scoring failed: {e}"
 
@@ -247,17 +303,51 @@ class Workspace:
         self._save_state(state)
 
     def execute(self, code: str) -> tuple[float | None, str | None]:
-        """Run `code` as train.py and score its predictions on the hidden labels.
-        Returns (metric, error). Does NOT commit or revert anything; callers decide."""
-        stale = os.path.join(self.root, PREDICTIONS_FILE)
-        if os.path.exists(stale):
-            os.remove(stale)  # never score a previous experiment's predictions
-        result = self.executor.run(code, timeout=RUN_TIMEOUT_SECONDS)
-        if result.timed_out:
-            return None, "timed out"
-        if result.exit_code != 0:
-            return None, result.stderr.strip()[-500:] or f"exit code {result.exit_code}"
-        return self._score_predictions()
+        """Run `code` as train.py and score it on the hidden labels: on the single
+        split (folds=1), or once per fold in a fresh temporary directory holding only
+        that fold's dataset.csv and test_features.csv (score = mean over folds).
+        Returns (metric, error) and sets self.last_fold_scores. Does NOT commit or
+        revert anything; callers decide."""
+        self.last_fold_scores = None
+        outside = _OUTSIDE_PATH.search(code)
+        if outside:
+            return None, (f"refused: the script references a path outside its run directory "
+                          f"(near {code[max(0, outside.start() - 20):outside.end() + 20]!r}); "
+                          f"read {DEV_FILE} and {FEATURES_FILE} by relative path only")
+        if self.folds <= 1:
+            stale = os.path.join(self.root, PREDICTIONS_FILE)
+            if os.path.exists(stale):
+                os.remove(stale)  # never score a previous experiment's predictions
+            result = self.executor.run(code, timeout=RUN_TIMEOUT_SECONDS)
+            if result.timed_out:
+                return None, "timed out"
+            if result.exit_code != 0:
+                return None, result.stderr.strip()[-500:] or f"exit code {result.exit_code}"
+            metric, error = self._score_predictions()
+            self.last_fold_scores = [metric] if metric is not None else None
+            return metric, error
+
+        scores = []
+        for i, (dev, hidden) in enumerate(self._folds):
+            run_dir = tempfile.mkdtemp(prefix=f"rsi-fold{i + 1}-")
+            try:  # only this fold's files exist while it runs
+                dev.to_csv(os.path.join(run_dir, DEV_FILE), index=False)
+                hidden.drop(columns=[self._target]).to_csv(os.path.join(run_dir, FEATURES_FILE), index=False)
+                result = LocalExecutor(run_dir).run(code, timeout=RUN_TIMEOUT_SECONDS)
+                if result.timed_out:
+                    return None, f"timed out (fold {i + 1}/{self.folds})"
+                if result.exit_code != 0:
+                    return None, (f"fold {i + 1}/{self.folds}: "
+                                  + (result.stderr.strip()[-500:] or f"exit code {result.exit_code}"))
+                metric, error = self._score_file(os.path.join(run_dir, PREDICTIONS_FILE),
+                                                 hidden[self._target].to_numpy())
+                if metric is None:
+                    return None, f"fold {i + 1}/{self.folds}: {error}"
+                scores.append(metric)
+            finally:
+                shutil.rmtree(run_dir, ignore_errors=True)
+        self.last_fold_scores = scores
+        return float(np.mean(scores)), None
 
     def _budget_refusal(self, iteration: int) -> str | None:
         if iteration >= self.max_experiments:
@@ -268,19 +358,30 @@ class Workspace:
         return None
 
     def _keep_or_revert(self, state: dict, iteration: int, description: str, code: str,
-                        metric: float | None, error: str | None, executions: int = 1, extra: dict | None = None) -> str:
-        """Apply the deterministic keep/revert rule to one scored version of train.py."""
+                        metric: float | None, error: str | None, executions: int = 1, extra: dict | None = None,
+                        fold_scores: list[float] | None = None) -> str:
+        """Apply the deterministic keep/revert rule to one scored version of train.py.
+
+        Version 2 (folds > 1, keep_t > 0): kept only if better on average AND
+        consistently across folds (paired t >= keep_t vs the current best)."""
         metric_name = state["metric_name"]
         state["executions"] = state.get("executions", 0) + executions
+        if fold_scores is None:
+            fold_scores = self.last_fold_scores
         if metric is None:
             self._git("checkout", "--", "train.py")
             self._record(state, iteration, description, None, False, error, extra)
-            if error == "timed out":
+            if error and error.startswith("timed out"):
                 return f"Iteration {iteration}: TIMED OUT after {RUN_TIMEOUT_SECONDS}s. Change reverted."
             return f"Iteration {iteration}: FAILED ({error}). Change reverted; train.py is back to the last kept version."
 
         best = state["best_metric"]
-        kept = best is None or (metric < best if state["minimize"] else metric > best)
+        better = best is None or (metric < best if state["minimize"] else metric > best)
+        t = paired_t(fold_scores, state.get("best_fold_scores"), state["minimize"]) if best is not None else None
+        consistent = t is None or self.keep_t <= 0 or t >= self.keep_t
+        kept = better and consistent
+        scoring_extra = {"fold_scores": fold_scores, "paired_t": t} if self.folds > 1 else {}
+        extra = {**(extra or {}), **scoring_extra}
         if kept:
             with open(self.train_script, "w") as f:
                 f.write(code)
@@ -290,12 +391,22 @@ class Workspace:
                 "commit", "-m", f"iteration {iteration}: {metric_name}={metric} -- {description}",
             )
             state["best_metric"] = metric
+            state["best_fold_scores"] = fold_scores
         else:
             self._git("checkout", "--", "train.py")
         self._record(state, iteration, description, metric, kept, None, extra)
 
-        verdict = "NEW BEST -- change kept and committed" if kept else f"did not beat the best ({best}) -- change reverted"
-        return f"Iteration {iteration}: {metric_name}={metric}. {verdict}. Current best: {state['best_metric']}."
+        if kept:
+            verdict = "NEW BEST -- change kept and committed"
+        elif better:
+            verdict = (f"better than the best ({best}) on average but not consistently across the {self.folds} "
+                       f"folds (paired t = {t:.2f} < {self.keep_t}) -- change reverted")
+        else:
+            verdict = f"did not beat the best ({best}) -- change reverted"
+        detail = ""
+        if self.folds > 1 and fold_scores:
+            detail = f" (mean of {self.folds} folds: " + ", ".join(f"{s:.3f}" for s in fold_scores) + ")"
+        return f"Iteration {iteration}: {metric_name}={metric}{detail}. {verdict}. Current best: {state['best_metric']}."
 
     def run_experiment(self, description: str) -> str:
         state = self.load_state()
