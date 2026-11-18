@@ -32,7 +32,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from tumble_core.workspace import split_hidden  # noqa: E402  (the harness's own dev/hidden split)
+from tumble_core.workspace import SCORING, fold_splits  # noqa: E402  (the harness's own splits)
 OUT = os.path.join(ROOT, "datasets")
 CACHE = os.path.join(OUT, ".openml_cache")
 
@@ -55,11 +55,14 @@ SPLITS = {
 }
 
 
-def reference_auc(df: pd.DataFrame) -> float:
+def reference_auc(df: pd.DataFrame, folds: int) -> float:
     """A plain logistic-regression baseline scored exactly like the harness scores
-    agents (trained on the dev part, scored on the hidden part), so we know each
-    dataset's starting point and that it isn't already solved."""
-    dev, hidden = split_hidden(df, "target")
+    agents (mean over the same hidden folds), so we know each dataset's starting
+    point and that it isn't already solved."""
+    return float(np.mean([_lr_auc(dev, hidden) for dev, hidden in fold_splits(df, "target", folds)]))
+
+
+def _lr_auc(dev: pd.DataFrame, hidden: pd.DataFrame) -> float:
     Xtr, ytr = dev.drop(columns=["target"]), dev["target"]
     Xte, yte = hidden.drop(columns=["target"]), hidden["target"]
     pre = make_column_transformer(
@@ -94,18 +97,21 @@ def load(name: str) -> pd.DataFrame:
 def main() -> None:
     os.makedirs(OUT, exist_ok=True)
     registry = []
-    print(f"{'dataset':22s} {'split':8s} {'rows':>6s} {'cols':>5s} {'pos%':>5s} {'missing%':>9s} {'LR AUC':>7s}")
+    print(f"{'dataset':22s} {'split':8s} {'rows':>6s} {'cols':>5s} {'pos%':>5s} {'missing%':>9s} {'5-fold':>7s} {'1-split':>7s}")
     for split, names in SPLITS.items():
         for name in names:
             df = load(name)
             df.to_csv(os.path.join(OUT, f"{name}.csv"), index=False)
-            auc = reference_auc(df)
+            auc = reference_auc(df, SCORING["folds"])
+            auc_v1 = reference_auc(df, 1)
             missing = df.drop(columns=["target"]).isna().mean().mean()
-            print(f"{name:22s} {split:8s} {len(df):6d} {df.shape[1] - 1:5d} {df['target'].mean():5.0%} {missing:9.1%} {auc:7.3f}")
+            print(f"{name:22s} {split:8s} {len(df):6d} {df.shape[1] - 1:5d} {df['target'].mean():5.0%} {missing:9.1%} "
+                  f"{auc:7.3f} {auc_v1:7.3f}")
             registry.append({
                 "name": name, "path": f"{name}.csv", "target": "target", "metric": "roc_auc", "minimize": False,
                 "split": split, "openml_id": DATASETS[name][0], "description": DATASETS[name][4],
-                "reference_lr_auc": round(auc, 4),
+                "reference_lr_auc": round(auc, 4),             # mean over SCORING["folds"] hidden folds
+                "reference_lr_auc_single_split": round(auc_v1, 4),  # version 1's one hidden split
             })
     with open(os.path.join(OUT, "registry.json"), "w") as f:
         json.dump(registry, f, indent=2)

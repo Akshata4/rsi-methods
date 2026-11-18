@@ -14,17 +14,19 @@ Six public OpenML/UCI datasets, all binary classification scored by **ROC-AUC**
 by fixed OpenML id. Only the target is standardized and pure ID columns dropped;
 missing values, zeros-meaning-missing and messy codes are left in on purpose.
 
-| Dataset | OpenML id | Rows | Features | Positive % | Split | Baseline LR AUC |
-|---|---|---|---|---|---|---|
-| Heart disease, Cleveland | 49 | 303 | 13 | 46% | train | 0.930 |
-| Heart disease, Hungarian (20% missing) | 51 | 294 | 13 | 36% | train | 0.812 |
-| Pima diabetes onset | 37 | 768 | 8 | 35% | held-out | 0.884 |
-| Blood donation (returns to donate) | 1464 | 748 | 4 | 24% | held-out | 0.727 |
-| Indian liver patients (ILPD) | 1480 | 583 | 10 | 71% | test | 0.736 |
-| Diabetes 130-US hospitals, readmitted <30 days (8k sample) | 4541 | 8000 | 47 | 11% | test | 0.581 |
+| Dataset | OpenML id | Rows | Features | Positive % | Split | Baseline LR AUC (5-fold) | (v1 single split) |
+|---|---|---|---|---|---|---|---|
+| Heart disease, Cleveland | 49 | 303 | 13 | 46% | train | 0.910 | 0.930 |
+| Heart disease, Hungarian (20% missing) | 51 | 294 | 13 | 36% | train | 0.919 | 0.812 |
+| Pima diabetes onset | 37 | 768 | 8 | 35% | held-out | 0.834 | 0.884 |
+| Blood donation (returns to donate) | 1464 | 748 | 4 | 24% | held-out | 0.752 | 0.727 |
+| Indian liver patients (ILPD) | 1480 | 583 | 10 | 71% | test | 0.749 | 0.736 |
+| Diabetes 130-US hospitals, readmitted <30 days (8k sample) | 4541 | 8000 | 47 | 11% | test | 0.592 | 0.581 |
 
-Baseline = plain logistic regression trained on the dev part and scored on the
-hidden part, exactly the way the harness scores the agent.
+Baseline = plain logistic regression scored exactly the way the harness scores
+the agent: the mean over 5 hidden folds (measurement version 2). The last
+column is version 1's single hidden split; it differs by up to 0.107 AUC on the
+same data and model (see *Measurement version 2*).
 Datasets were chosen from 12 clinical candidates by probing: excluded were
 ones already near-solved (thyroid "sick" AUC 0.999, SPECTF 0.976,
 heart-statlog 0.947), ones with almost no signal (thoracic surgery ~0.52), and
@@ -271,12 +273,58 @@ Runs 3 and 4 also completed their generation loops (both children rejected
 each time), but under self-reported scoring, so those decisions are not
 evidence either way.
 
+## Measurement version 2
+
+All three methods' first real runs failed for one shared reason: the
+measurement was noisier than the effects they were trying to detect (Budget
+RSI's labels, SO-RSI's mismatch trigger, RSIFlow's "gain" threshold). Version 2
+fixes the measurement, not the methods:
+
+- **5-fold hidden scoring.** The harness runs `train.py` once per fold, each
+  time in a fresh temporary directory holding only that fold's `dataset.csv`
+  and `test_features.csv`, and the score is the mean over the 5 hidden parts.
+  The agent's code and protocol are unchanged.
+- **Noise-aware keep/revert.** The candidate and the current best are scored
+  on the same folds, so their per-fold differences cancel most of the noise. A
+  change is kept only if it is better on average *and* consistently (paired
+  t >= 1). That one decision feeds every method: Budget RSI's labels become
+  5-fold means, RSIFlow's router counts only kept changes as progress, and
+  SO-RSI's mismatch fires only when a change is clearly worse (paired t <= -2),
+  not on a 1% move.
+- **Path guard.** Scripts that reference absolute paths or `..` are refused.
+
+How much noise it removes -- the same logistic regression scored under 20
+different random splits (8 for readmission):
+
+| Dataset | AUC sd, one hidden split (v1) | AUC sd, 5-fold mean (v2) | Reduction |
+|---|---|---|---|
+| heart_cleveland | 0.028 | 0.005 | 5.2x |
+| heart_hungarian | 0.034 | 0.006 | 5.3x |
+| pima_diabetes | 0.033 | 0.003 | 12.4x |
+| blood_donation | 0.036 | 0.003 | 13.5x |
+| liver_ilpd | 0.033 | 0.005 | 6.8x |
+| hospital_readmission | 0.019 | 0.003 | 6.6x |
+
+Version 1's fixed split was also simply unlucky for some datasets: Pima's was
+unusually easy (0.884 vs 0.834 over 5 folds), which is why Pima's first
+script was so hard to beat in every v1 run and why RSIFlow's held-out
+comparisons were all decided at the baseline.
+
+`--folds 1 --keep-t 0` on any runner reproduces version 1 exactly (the agent's
+prompt is byte-identical); every run records its scoring settings in
+`provenance.json`. Each script now runs 5 times, so experiments take longer.
+
 ## Fairness guards
 
-- **The harness scores, not the agent.** Each dataset is split 80/20 into a dev
-  part (`dataset.csv`, with labels) and a hidden part (`test_features.csv`, no
-  labels). `train.py` writes `predictions.csv`; the harness scores it against
-  hidden labels that exist only in its memory. This was added after a real run
+- **The harness scores, not the agent.** The agent gets a dev part
+  (`dataset.csv`, with labels) and a hidden part (`test_features.csv`, no
+  labels); `train.py` writes `predictions.csv` and the harness scores it against
+  hidden labels held in its memory (v2: on 5 folds, each run in a temporary
+  directory that holds only that fold's files). The hidden labels are never in
+  the workspace. They are, however, in the source CSVs under `datasets/` on the
+  same machine, so scripts that reference absolute or parent paths are refused;
+  only a sandbox (e.g. Tumble's E2B) would fully rule out an agent that tries
+  to cheat deliberately. This was added after a real run
   in which an agent target-encoded over all rows before its own split and
   reported a fake 0.80 AUC on readmission; under harness scoring that same
   script gets 0.58, below an honest version (0.60).
@@ -293,8 +341,10 @@ evidence either way.
   A noisy held-out result can still accept a lucky child, which the test split then exposes.
 - Tool results are capped at 40k characters (an agent reading a whole 8k-row CSV
   otherwise overflows the model's context window).
-- Within a session keep/revert uses the hidden-split score, so the agent still
-  hill-climbs on one fixed split (it never sees the labels, but it does see which
-  edits scored higher). On these small datasets AUC moves by ±0.02-0.05 between
-  random splits, which is the scale of "improvement" to be skeptical of.
-- Runs execute LLM-written code locally. Use the E2B sandbox from Tumble for anything untrusted.
+- Within a session keep/revert uses the hidden-fold scores, so the agent still
+  hill-climbs on the same 5 folds (it never sees the labels, but it does see
+  which edits scored higher). In v1 this was one split with +-0.02-0.04 AUC of
+  split noise; in v2 the folds cover every row and the noise is ~5-13x smaller,
+  but claims should still rest on the untouched test datasets.
+- Runs execute LLM-written code locally; the path guard is a check, not a sandbox.
+  Use the E2B sandbox from Tumble for anything untrusted.
